@@ -31,6 +31,17 @@ WebViewProjectPlan class >> initialize [
 	Reports := Dictionary new
 ]
 
+{ #category : 'logging' }
+WebViewProjectPlan class >> log: aString [
+	(Smalltalk at: #WvLog ifAbsentPut: [ OrderedCollection new ])
+		add: DateAndTime now printString, ' | ', aString
+]
+
+{ #category : 'logging' }
+WebViewProjectPlan class >> logContents [
+	^ (Smalltalk at: #WvLog ifAbsent: [ #() ]) asArray joinUsing: String cr
+]
+
 { #category : 'accessing' }
 WebViewProjectPlan class >> markDone: aSymbol [
 	self status at: aSymbol put: #done
