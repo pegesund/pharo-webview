@@ -18,6 +18,21 @@ and get callbacks back from the page's JavaScript.
 
 ---
 
+## Contents
+
+- [What you get](#what-you-get)
+- [Features in pictures](#features-in-pictures)
+- [Quick start](#quick-start) — [build the host](#1-build-the-cef-host-macos-arm64), [load the packages](#2-load-the-pharo-packages-pharo-14), [open a browser](#3-open-a-browser)
+- [Scripting the page from Pharo](#scripting-the-page-from-pharo) — run JS, edit the DOM
+- [Callbacks from the page](#callbacks-from-the-page) — page events + `window.pharo.emit`
+- [Browser automation, the Smalltalk way](#browser-automation-the-smalltalk-way) — the `WvPage` DSL, [assertions & tests](#assertions--tests), [screenshots](#screenshots)
+- [How it works](#how-it-works) — architecture & design decisions
+- [Repository layout](#repository-layout)
+- [Status & limitations](#status--limitations)
+- [Credits](#credits)
+
+---
+
 ## What you get
 
 - 🌐 **Real Chromium** — modern JS, CSS, video, fonts, HTTPS. It's CEF 138 running
