@@ -42,7 +42,7 @@ WebViewCefMorph >> cleanupFiles [
 { #category : 'submorphs-add/remove' }
 WebViewCefMorph >> delete [
 	self stopStepping.
-	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
+	self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
 	shm ifNotNil: [ shm close. shm := nil ].
 	self killHost.
 	self cleanupFiles.
@@ -171,7 +171,8 @@ WebViewCefMorph >> pushFrame [
 	r := self formRendererOrNil ifNil: [ ^ self ].
 	scale := OSWorldRenderer canvasScaleFactor.
 	r
-		overlayPixels: shm pixelsAddress
+		overlayFor: self
+		pixels: shm pixelsAddress
 		extent: shm width @ shm height
 		pitch: shm width * 4
 		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)

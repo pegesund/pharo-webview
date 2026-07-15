@@ -23,15 +23,16 @@ WebViewCoreTest >> testCdpMorphWiring [
 ]
 
 { #category : 'tests' }
-WebViewCoreTest >> testFormRendererDirtyRectUpload [
-	self assert: (WebViewFormRenderer includesSelector: #overlayPixels:extent:pitch:bounds:dirtyRects:).
-	self assert: (WebViewFormRenderer includesSelector: #validateOverlay).
-	self assert: (WebViewMorph includesSelector: #pushFrame)
+WebViewCoreTest >> testFormRendererMultiOverlay [
+	self assert: (WebViewFormRenderer includesSelector: #overlayFor:pixels:extent:pitch:bounds:dirtyRects:).
+	self assert: (WebViewFormRenderer includesSelector: #removeOverlayFor:).
+	self assert: (WebViewFormRenderer includesSelector: #validateEntry:).
+	self assert: (WebViewCefMorph includesSelector: #pushFrame)
 ]
 
 { #category : 'tests' }
 WebViewCoreTest >> testFormRendererOverridesAllPresentSites [
-	#(copyAndPresentTextureRectangle: updateAll useDeferredUpdates copyOverlay validateOverlay clearOverlay overlayForm:bounds: destroy)
+	#(copyAndPresentTextureRectangle: updateAll useDeferredUpdates copyOverlay clearOverlay overlayFor:pixels:extent:pitch:bounds:dirtyRects: removeOverlayFor: destroy)
 		do: [ :sel | self assert: (WebViewFormRenderer includesSelector: sel) description: sel asString ]
 ]
 

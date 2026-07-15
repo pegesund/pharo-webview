@@ -20,7 +20,7 @@ WebViewCdpMorph >> browserExtent [
 
 { #category : 'submorphs-add/remove' }
 WebViewCdpMorph >> delete [
-	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
+	self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
 	super delete
 ]
 
@@ -143,8 +143,12 @@ WebViewCdpMorph >> pushForm: aForm [
 	r := self formRendererOrNil ifNil: [ ^ self ].
 	scale := OSWorldRenderer canvasScaleFactor.
 	r
-		overlayForm: (aForm depth = 32 ifTrue: [ aForm ] ifFalse: [ aForm asFormOfDepth: 32 ])
+		overlayFor: self
+		pixels: (aForm depth = 32 ifTrue: [ aForm ] ifFalse: [ aForm asFormOfDepth: 32 ]) bits
+		extent: aForm extent
+		pitch: aForm width * 4
 		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)
+		dirtyRects: nil
 ]
 
 { #category : 'private' }

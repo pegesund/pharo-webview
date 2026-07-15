@@ -11,7 +11,7 @@ Class {
 
 { #category : 'submorphs-add/remove' }
 WebViewTestPatternMorph >> delete [
-	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
+	self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
 	super delete
 ]
 
@@ -46,8 +46,12 @@ WebViewTestPatternMorph >> pushOverlay [
 	formRenderer := self formRendererOrNil ifNil: [ ^ self ].
 	scale := OSWorldRenderer canvasScaleFactor.
 	formRenderer
-		overlayForm: buffer
+		overlayFor: self
+		pixels: buffer bits
+		extent: buffer extent
+		pitch: buffer width * 4
 		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)
+		dirtyRects: nil
 ]
 
 { #category : 'drawing' }

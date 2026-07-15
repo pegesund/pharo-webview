@@ -2,14 +2,7 @@ Class {
 	#name : 'WebViewFormRenderer',
 	#superclass : 'OSSDL2FormRenderer',
 	#instVars : [
-		'overlayTexture',
-		'overlayTextureExtent',
-		'overlayPixels',
-		'overlayPixelExtent',
-		'overlayPitch',
-		'overlayBounds',
-		'overlayDirty',
-		'overlayDirtyRects',
+		'overlays',
 		'overlayCopyCount'
 	],
 	#category : 'WebView-Core',
@@ -18,8 +11,6 @@ Class {
 
 { #category : 'installation' }
 WebViewFormRenderer class >> install [
-	"Swap the active form renderer for a WebViewFormRenderer by adopting its state.
-	MUST run on the UI process (defer it). Returns the new renderer."
 	| bw old new |
 	bw := (nil currentWorld worldState worldRenderer instVarNamed: 'osWindow') instVarNamed: 'backendWindow'.
 	old := bw renderer.
@@ -61,10 +52,10 @@ WebViewFormRenderer class >> probeSdlOverlayPath [
 
 { #category : 'installation' }
 WebViewFormRenderer class >> revert [
-	"Swap back to a plain OSSDL2FormRenderer (state adopted). MUST run on the UI process."
 	| bw cur old |
 	bw := (nil currentWorld worldState worldRenderer instVarNamed: 'osWindow') instVarNamed: 'backendWindow'.
 	cur := bw renderer.
+	(cur isKindOf: WebViewFormRenderer) ifFalse: [ ^ self ].
 	old := OSSDL2FormRenderer new.
 	#(form backendWindow renderer texture extent deferUpdates mutex)
 		do: [ :iv | old instVarNamed: iv put: (cur instVarNamed: iv) ].
@@ -74,8 +65,6 @@ WebViewFormRenderer class >> revert [
 
 { #category : 'installation' }
 WebViewFormRenderer >> adoptStateFrom: anOSSDL2FormRenderer [
-	"Take over the live SDL handles and mutex of an existing form renderer.
-	No SDL teardown/re-creation - the swap is pure object surgery."
 	#(form backendWindow renderer texture extent deferUpdates mutex)
 		do: [ :iv | self instVarNamed: iv put: (anOSSDL2FormRenderer instVarNamed: iv) ]
 ]
@@ -83,14 +72,9 @@ WebViewFormRenderer >> adoptStateFrom: anOSSDL2FormRenderer [
 { #category : 'overlay' }
 WebViewFormRenderer >> clearOverlay [
 	mutex critical: [
-		overlayTexture ifNotNil: [ overlayTexture destroy ].
-		overlayTexture := nil.
-		overlayTextureExtent := nil.
-		overlayPixels := nil.
-		overlayPixelExtent := nil.
-		overlayBounds := nil.
-		overlayDirtyRects := nil.
-		overlayDirty := false ]
+		overlays ifNotNil: [
+			overlays do: [ :entry | (entry at: #texture ifAbsent: [ nil ]) ifNotNil: [ :t | t destroy ] ] ].
+		overlays := OrderedCollection new ]
 ]
 
 { #category : 'updating screen' }
@@ -105,41 +89,70 @@ WebViewFormRenderer >> copyAndPresentTextureRectangle: rectangle [
 
 { #category : 'overlay' }
 WebViewFormRenderer >> copyOverlay [
-	"Assumes mutex is held. Interleave the overlay texture after the world texture copy,
-	before present. Errors must NEVER escape (mutex poisoning, Pharo issue 10156):
-	on any error the overlay is kill-switched and the error logged."
-	overlayBounds ifNil: [ ^ self ].
-	[
-	self validateOverlay ifTrue: [
-		renderer
-			copy: overlayTexture
-			srcRect: (0 @ 0 extent: overlayTextureExtent) asSDLRect
-			dstRect: overlayBounds asSDLRect.
-		overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
-		on: Error
-		do: [ :e |
-			overlayBounds := nil.
-			WebViewProjectPlan log: 'copyOverlay ERROR (overlay disabled): ', e printString ]
+	"Assumes mutex held. Composite every overlay entry (in z-order) after the world
+	texture copy, before present. Per-entry errors kill-switch that entry only."
+	overlays ifNil: [ ^ self ].
+	overlays do: [ :entry |
+		[ (self validateEntry: entry) ifTrue: [
+			renderer
+				copy: (entry at: #texture)
+				srcRect: (0 @ 0 extent: (entry at: #textureExtent)) asSDLRect
+				dstRect: (entry at: #bounds) asSDLRect.
+			overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
+			on: Error
+			do: [ :e |
+				entry at: #pixels put: nil.
+				WebViewProjectPlan log: 'copyOverlay entry ERROR: ', e printString ] ]
 ]
 
 { #category : 'deleting' }
 WebViewFormRenderer >> destroy [
 	mutex critical: [
-		overlayTexture ifNotNil: [ overlayTexture destroy ].
-		overlayTexture := nil ].
+		overlays ifNotNil: [ overlays do: [ :entry | (entry at: #texture ifAbsent: [nil]) ifNotNil: [:t | t destroy ] ] ].
+		overlays := OrderedCollection new ].
 	super destroy
+]
+
+{ #category : 'overlay' }
+WebViewFormRenderer >> entryFor: aKey [
+	"Find or create the overlay entry (a Dictionary) for aKey. Assumes mutex held."
+	overlays ifNil: [ overlays := OrderedCollection new ].
+	^ overlays detect: [ :e | (e at: #key) == aKey ] ifNone: [
+		| entry |
+		entry := IdentityDictionary new.
+		entry at: #key put: aKey; at: #dirty put: false.
+		overlays add: entry.
+		entry ]
 ]
 
 { #category : 'initialization' }
 WebViewFormRenderer >> initialize [
 	super initialize.
-	overlayDirty := false.
+	overlays := OrderedCollection new.
 	overlayCopyCount := 0
 ]
 
 { #category : 'accessing' }
-WebViewFormRenderer >> overlayCopyCount [
-	^ overlayCopyCount ifNil: [ 0 ]
+WebViewFormRenderer >> overlayCopyCount [ ^ overlayCopyCount ifNil: [ 0 ]
+]
+
+{ #category : 'accessing' }
+WebViewFormRenderer >> overlayCount [ ^ overlays ifNil: [ 0 ] ifNotNil: [ overlays size ]
+]
+
+{ #category : 'overlay' }
+WebViewFormRenderer >> overlayFor: aKey pixels: pixelsSource extent: aPoint pitch: pitchInt bounds: aRectangle dirtyRects: rectsOrNil [
+	"Register/update the overlay for aKey. pixelsSource is an ExternalAddress or a
+	Form Bitmap; bounds is the destination rect in texture (device) coordinates."
+	mutex critical: [
+		| entry |
+		entry := self entryFor: aKey.
+		entry at: #pixels put: pixelsSource.
+		entry at: #pixelExtent put: aPoint.
+		entry at: #pitch put: pitchInt.
+		entry at: #bounds put: aRectangle.
+		entry at: #dirtyRects put: rectsOrNil.
+		entry at: #dirty put: true ]
 ]
 
 { #category : 'overlay' }
@@ -161,6 +174,15 @@ WebViewFormRenderer >> overlayPixels: pixelsSource extent: aPoint pitch: pitchIn
 		overlayDirty := true ]
 ]
 
+{ #category : 'overlay' }
+WebViewFormRenderer >> removeOverlayFor: aKey [
+	mutex critical: [
+		overlays ifNil: [ ^ self ].
+		(overlays detect: [ :e | (e at: #key) == aKey ] ifNone: [ nil ]) ifNotNil: [ :entry |
+			(entry at: #texture ifAbsent: [ nil ]) ifNotNil: [ :t | t destroy ].
+			overlays remove: entry ifAbsent: [ ] ] ]
+]
+
 { #category : 'updating screen' }
 WebViewFormRenderer >> updateAll [
 	mutex critical: [
@@ -174,10 +196,33 @@ WebViewFormRenderer >> updateAll [
 
 { #category : 'private' }
 WebViewFormRenderer >> useDeferredUpdates [
-	mutex critical: [
-		renderer copy: texture.
-		self copyOverlay.
-		renderer present ]
+	mutex critical: [ renderer copy: texture. self copyOverlay. renderer present ]
+]
+
+{ #category : 'overlay' }
+WebViewFormRenderer >> validateEntry: entry [
+	"Assumes mutex held and renderer valid. (Re)creates + uploads this entry texture.
+	Answers true if the entry has a usable texture."
+	| pixels pxExtent tex texExtent |
+	pixels := entry at: #pixels ifAbsent: [ nil ].
+	pixels ifNil: [ ^ false ].
+	pxExtent := entry at: #pixelExtent.
+	tex := entry at: #texture ifAbsent: [ nil ].
+	texExtent := entry at: #textureExtent ifAbsent: [ nil ].
+	(tex isNil or: [ tex isNull or: [ texExtent ~= pxExtent ] ]) ifTrue: [
+		tex ifNotNil: [ tex destroy ].
+		tex := renderer
+			createTextureFormat: SDL_PIXELFORMAT_XRGB8888
+			access: SDL_TEXTUREACCESS_STREAMING
+			width: pxExtent x height: pxExtent y.
+		entry at: #texture put: tex.
+		entry at: #textureExtent put: pxExtent.
+		entry at: #dirty put: true.
+		entry at: #dirtyRects put: nil ].
+	(entry at: #dirty) ifTrue: [
+		tex updateTexturePixels: pixels pitch: (entry at: #pitch).
+		entry at: #dirty put: false ].
+	^ true
 ]
 
 { #category : 'overlay' }
