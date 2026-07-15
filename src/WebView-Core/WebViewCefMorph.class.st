@@ -7,21 +7,45 @@ Class {
 		'url',
 		'shmPath',
 		'inputPath',
-		'hostPid'
+		'pidPath',
+		'id',
+		'ownsHost'
 	],
 	#category : 'WebView-Core',
 	#package : 'WebView-Core'
 }
+
+{ #category : 'config' }
+WebViewCefMorph class >> binaryPath [
+	^ '/Users/pegesund/dev/pharo-webview/cef_host/build/cef_host.app/Contents/MacOS/cef_host'
+]
+
+{ #category : 'config' }
+WebViewCefMorph class >> nextId [
+	| n |
+	n := (Smalltalk at: #WvCefIdCounter ifAbsent: [ 0 ]) + 1.
+	Smalltalk at: #WvCefIdCounter put: n.
+	^ n
+]
 
 { #category : 'input' }
 WebViewCefMorph >> browserExtent [
 	^ (shm notNil and: [ shm isValid ]) ifTrue: [ shm width @ shm height ] ifFalse: [ self extent ]
 ]
 
+{ #category : 'lifecycle' }
+WebViewCefMorph >> cleanupFiles [
+	#('.shm' '.shm.cache' '.input' '.input.status' '.pid') do: [ :suffix |
+		[ ('/tmp/wv-cef-', id printString, suffix) asFileReference ensureDelete ] on: Error do: [:e|] ]
+]
+
 { #category : 'submorphs-add/remove' }
 WebViewCefMorph >> delete [
+	self stopStepping.
 	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
 	shm ifNotNil: [ shm close. shm := nil ].
+	self killHost.
+	self cleanupFiles.
 	super delete
 ]
 
@@ -35,6 +59,8 @@ WebViewCefMorph >> drawOn: aCanvas [
 { #category : 'private' }
 WebViewCefMorph >> ensureShm [
 	(shm notNil and: [ shm isValid ]) ifTrue: [ ^ true ].
+	shm ifNotNil: [ shm close. shm := nil ].
+	shmPath asFileReference exists ifFalse: [ ^ false ].
 	shm := WvSharedMemory openPath: shmPath maxWidth: 800 maxHeight: 600.
 	^ shm notNil and: [ shm isValid ]
 ]
@@ -64,17 +90,25 @@ WebViewCefMorph >> initialize [
 	super initialize.
 	lastSeq := -1.
 	url := 'https://example.com'.
-	shmPath := '/tmp/wv-cef.shm'.
-	inputPath := '/tmp/wv-cef.input'.
+	ownsHost := false.
+	id := WebViewCefMorph nextId.
+	shmPath := '/tmp/wv-cef-', id printString, '.shm'.
+	inputPath := '/tmp/wv-cef-', id printString, '.input'.
+	pidPath := '/tmp/wv-cef-', id printString, '.pid'.
 	self extent: 800 @ 600.
 	self color: (Color r: 0.1 g: 0.1 b: 0.12).
 	self borderWidth: 1.
 	self borderColor: Color cyan
 ]
 
+{ #category : 'accessing' }
+WebViewCefMorph >> inputPath [ ^ inputPath
+]
+
 { #category : 'stepping' }
 WebViewCefMorph >> intoWorld: aWorld [
 	super intoWorld: aWorld.
+	self launchHost.
 	self comeToFront.
 	self startStepping
 ]
@@ -84,6 +118,34 @@ WebViewCefMorph >> keyStroke: anEvent [
 	| ch |
 	ch := anEvent keyCharacter.
 	ch ifNotNil: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ]
+]
+
+{ #category : 'lifecycle' }
+WebViewCefMorph >> killHost [
+
+	| pid |
+	ownsHost ifFalse: [ ^ self ].
+	pid := [
+		       pidPath asFileReference exists
+			       ifTrue: [ pidPath asFileReference contents trimBoth ]
+			       ifFalse: [ nil ] ]
+		       on: Error
+		       do: [ :e | nil ].
+	(pid notNil and: [ pid notEmpty ]) ifTrue: [ LibC runCommand: 'kill ' , pid , ' 2>/dev/null' ].
+	ownsHost := false
+]
+
+{ #category : 'lifecycle' }
+WebViewCefMorph >> launchHost [
+	"Start our own cef_host process (background), writing its PID to pidPath.
+	Idempotent: only launches once per morph."
+	| cmd |
+	ownsHost ifTrue: [ ^ self ].
+	ownsHost := true.
+	self cleanupFiles.
+	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" 800 600 "', shmPath, '" "', inputPath, '" >/tmp/wv-cef-', id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
+	LibC runCommand: cmd.
+	WebViewProjectPlan log: 'launched cef_host #', id printString
 ]
 
 { #category : 'event handling' }
@@ -118,6 +180,10 @@ WebViewCefMorph >> pushFrame [
 
 { #category : 'accessing' }
 WebViewCefMorph >> shmPath: aString [ ^ shmPath := aString
+]
+
+{ #category : 'accessing' }
+WebViewCefMorph >> statusPath [ ^ inputPath, '.status'
 ]
 
 { #category : 'stepping' }

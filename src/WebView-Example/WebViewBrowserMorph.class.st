@@ -136,12 +136,14 @@ WebViewBrowserMorph >> sendNav: aType [
 
 { #category : 'stepping' }
 WebViewBrowserMorph >> step [
-	"Poll the status file for the current URL and reflect it in the address bar
-	(unless the user is editing it)."
+	"Poll the webview status file for the current URL; reflect it in the address bar
+	unless the user is editing it."
 
 	[
-		| ref newUrl |
-		ref := statusPath asFileReference.
+		| ref newUrl sp |
+		webview ifNil: [ ^ self ].
+		sp := webview statusPath.
+		ref := sp asFileReference.
 		ref exists ifFalse: [ ^ self ].
 		newUrl := ref contents trimBoth.
 		newUrl = currentUrl ifTrue: [ ^ self ].
