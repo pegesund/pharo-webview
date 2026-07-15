@@ -17,6 +17,24 @@ Class {
 
 { #category : 'config' }
 WebViewCefMorph class >> binaryPath [
+	"The cef_host executable. Resolution order: WV_CEF_HOST env var, then a
+	value set via binaryPath:, then the built-in default."
+
+	| env |
+	env := [ OSPlatform current environment at: 'WV_CEF_HOST' ifAbsent: [ nil ] ]
+		       on: Error
+		       do: [ :e | nil ].
+	env ifNotNil: [ ^ env ].
+	^ Smalltalk at: #WvCefHostPath ifAbsent: [ self defaultBinaryPath ]
+]
+
+{ #category : 'config' }
+WebViewCefMorph class >> binaryPath: aString [
+	Smalltalk at: #WvCefHostPath put: aString
+]
+
+{ #category : 'config' }
+WebViewCefMorph class >> defaultBinaryPath [
 	^ '/Users/pegesund/dev/pharo-webview/cef_host/build/cef_host.app/Contents/MacOS/cef_host'
 ]
 
