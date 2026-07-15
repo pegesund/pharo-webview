@@ -15,6 +15,25 @@
 
 namespace {
 
+// macOS native (virtual) key code for a printable ASCII char, so the DOM
+// keydown reports the right event.code/key. 0 if unknown.
+int macNativeForChar(char c) {
+    if (c >= 'a' && c <= 'z') c -= 32;  // fold to uppercase
+    switch (c) {
+        case 'A': return 0;  case 'S': return 1;  case 'D': return 2;  case 'F': return 3;
+        case 'H': return 4;  case 'G': return 5;  case 'Z': return 6;  case 'X': return 7;
+        case 'C': return 8;  case 'V': return 9;  case 'B': return 11; case 'Q': return 12;
+        case 'W': return 13; case 'E': return 14; case 'R': return 15; case 'Y': return 16;
+        case 'T': return 17; case 'O': return 31; case 'U': return 32; case 'I': return 34;
+        case 'P': return 35; case 'L': return 37; case 'J': return 38; case 'K': return 40;
+        case 'N': return 45; case 'M': return 46;
+        case '1': return 18; case '2': return 19; case '3': return 20; case '4': return 21;
+        case '5': return 23; case '6': return 22; case '7': return 26; case '8': return 28;
+        case '9': return 25; case '0': return 29; case ' ': return 49;
+        default: return 0;
+    }
+}
+
 int intOf(CefRefPtr<CefDictionaryValue> d, const char* key, int dflt = 0) {
     if (!d->HasKey(key)) return dflt;
     auto v = d->GetValue(key);
@@ -65,39 +84,74 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
     } else if (type == "key") {
         int code = intOf(d, "code", 0);  // windows virtual key code for special keys
         std::string text = d->HasKey("text") ? d->GetString("text").ToString() : "";
-        CefKeyEvent k;
-        k.modifiers = 0;
-        k.is_system_key = false;
+
+        // Native keydown: fires the DOM keydown AND the browser default action
+        // (caret move / scrolling / delete / submit).
+        //
+        // NOTE: in --single-process mode SendKeyEvent(KEYEVENT_KEYUP) mis-fires as
+        // a SECOND keydown (verified: keyup-only -> down:1 up:0), so we cannot emit
+        // a native keyup. Instead we synthesize the DOM 'keyup' with JavaScript so
+        // page keyup listeners fire — behaviour matches a real browser for JS.
         if (code != 0) {
-            // Special key (backspace, enter, arrows, ...): raw down + up.
-            // macOS needs native_key_code set for default actions (arrow-key
-            // scrolling, etc.) to fire, not just windows_key_code.
-            k.windows_key_code = code;
+            int native = 0;
+            const char* keyName = "";
             switch (code) {
-                case 37: k.native_key_code = 123; break;
-                case 39: k.native_key_code = 124; break;
-                case 38: k.native_key_code = 126; break;
-                case 40: k.native_key_code = 125; break;
-                case 33: k.native_key_code = 116; break;
-                case 34: k.native_key_code = 121; break;
-                case 36: k.native_key_code = 115; break;
-                case 35: k.native_key_code = 119; break;
-                case 8:  k.native_key_code = 51;  break;
-                case 13: k.native_key_code = 36;  break;
-                default: k.native_key_code = 0;   break;
+                case 37: native = 123; keyName = "ArrowLeft";  break;
+                case 39: native = 124; keyName = "ArrowRight"; break;
+                case 38: native = 126; keyName = "ArrowUp";    break;
+                case 40: native = 125; keyName = "ArrowDown";  break;
+                case 33: native = 116; keyName = "PageUp";     break;
+                case 34: native = 121; keyName = "PageDown";   break;
+                case 36: native = 115; keyName = "Home";       break;
+                case 35: native = 119; keyName = "End";        break;
+                case 8:  native = 51;  keyName = "Backspace";  break;
+                case 9:  native = 48;  keyName = "Tab";        break;
+                case 13: native = 36;  keyName = "Enter";      break;
+                case 27: native = 53;  keyName = "Escape";     break;
+                case 46: native = 117; keyName = "Delete";     break;
             }
-            // NOTE: in --single-process mode a KEYEVENT_KEYUP mis-fires as a
-            // second DOM keydown, which double-moved the caret / double-scrolled.
-            // RAWKEYDOWN alone fires one keydown and performs the default action
-            // (caret move / scroll), which is what we want.
+            CefKeyEvent k;
+            k.modifiers = 0;
+            k.is_system_key = false;
+            k.windows_key_code = code;
+            k.native_key_code = native;
             k.type = KEYEVENT_RAWKEYDOWN;
             host->SendKeyEvent(k);
+            if (keyName[0]) {
+                std::string js =
+                    "(function(){var t=document.activeElement||document.body;"
+                    "t.dispatchEvent(new KeyboardEvent('keyup',{key:'";
+                js += keyName;
+                js += "',code:'";
+                js += keyName;
+                js += "',keyCode:" + std::to_string(code) +
+                      ",which:" + std::to_string(code) +
+                      ",bubbles:true,cancelable:true}));})();";
+                browser->GetMainFrame()->ExecuteJavaScript(js, "", 0);
+            }
         } else if (!text.empty()) {
-            k.type = KEYEVENT_CHAR;
-            k.character = (char16_t)text[0];
-            k.unmodified_character = (char16_t)text[0];
-            k.windows_key_code = (int)text[0];
-            host->SendKeyEvent(k);
+            // Printable text: send RAWKEYDOWN then CHAR. The RAWKEYDOWN makes each
+            // keystroke self-contained so it resets the input pipeline — otherwise
+            // the character right after a special key (whose native KEYUP we can't
+            // send in single-process) gets absorbed as that key's missing CHAR.
+            int kc = (int)(unsigned char)text[0];
+            int vk = kc;
+            if (vk >= 'a' && vk <= 'z') vk -= 32;  // vkey uses uppercase
+            CefKeyEvent kd;
+            kd.modifiers = 0;
+            kd.is_system_key = false;
+            kd.windows_key_code = vk;
+            kd.native_key_code = macNativeForChar(text[0]);
+            kd.type = KEYEVENT_RAWKEYDOWN;
+            host->SendKeyEvent(kd);
+            CefKeyEvent kc2;
+            kc2.modifiers = 0;
+            kc2.is_system_key = false;
+            kc2.type = KEYEVENT_CHAR;
+            kc2.character = (char16_t)text[0];
+            kc2.unmodified_character = (char16_t)text[0];
+            kc2.windows_key_code = vk;
+            host->SendKeyEvent(kc2);
         }
     }
 }
