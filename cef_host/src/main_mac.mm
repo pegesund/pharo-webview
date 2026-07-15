@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
         CefRefPtr<WvApp> app(new WvApp(&shm, url, width, height, control_path));
 
         CefSettings settings;
-        settings.log_severity = LOGSEVERITY_INFO;
+        settings.log_severity = LOGSEVERITY_VERBOSE;
         settings.windowless_rendering_enabled = true;
         settings.no_sandbox = true;
         settings.external_message_pump = false;

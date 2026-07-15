@@ -17,8 +17,13 @@ void WvApp::OnBeforeCommandLineProcessing(const CefString&,
                                           CefRefPtr<CefCommandLine> command_line) {
     // Offscreen rendering is more reliable with the GPU process disabled;
     // OnPaint then comes from the software compositor.
-    command_line->AppendSwitchWithValue("enable-logging", "stderr");
-    command_line->AppendSwitchWithValue("v", "1");
+    // The viz display compositor lives in the GPU process; in this headless,
+    // sandbox-less host that subprocess cannot function (it exited with 15),
+    // so no frames were produced. Run the GPU/viz IN the browser process where
+    // our message loop drives it, with the SwiftShader software GL backend.
+    command_line->AppendSwitch("disable-gpu");
+    command_line->AppendSwitch("in-process-gpu");
+    command_line->AppendSwitch("disable-gpu-sandbox");
     // Do NOT touch the macOS Keychain: ad-hoc signing changes the binary hash
     // every build, so the Keychain ACL re-prompts endlessly and blocks startup
     // (which also stalled OnPaint). A mock keychain + basic password store
@@ -34,7 +39,7 @@ void WvApp::OnContextInitialized() {
 
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);  // no parent -> offscreen rendering
-    window_info.external_begin_frame_enabled = true;  // we drive frames
+    window_info.external_begin_frame_enabled = true;  // no CVDisplayLink headless
 
     CefBrowserSettings browser_settings;
     browser_settings.windowless_frame_rate = 60;

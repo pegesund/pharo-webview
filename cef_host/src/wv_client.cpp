@@ -18,6 +18,8 @@ WvClient::WvClient(WvShm* shm, int width, int height)
 
 void WvClient::GetViewRect(CefRefPtr<CefBrowser>, CefRect& rect) {
     rect.Set(0, 0, width_.load(), height_.load());
+    static int c = 0;
+    if (c++ < 3) { std::fprintf(stderr, "[wv_host] GetViewRect called\n"); std::fflush(stderr); }
 }
 
 bool WvClient::GetScreenInfo(CefRefPtr<CefBrowser>, CefScreenInfo& info) {
@@ -99,7 +101,18 @@ void WvClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoadin
     if (!isLoading && browser) {
         // Page finished loading -> force a repaint of the whole view.
         browser->GetHost()->Invalidate(PET_VIEW);
+        browser->GetMainFrame()->ExecuteJavaScript(
+            "console.log('JS_ALIVE ' + window.innerWidth + 'x' + window.innerHeight "
+            "+ ' vis=' + document.visibilityState)",
+            "wvdiag", 0);
     }
+}
+
+bool WvClient::OnConsoleMessage(CefRefPtr<CefBrowser>, cef_log_severity_t,
+                                const CefString& message, const CefString&, int) {
+    std::fprintf(stderr, "[wv_host] CONSOLE: %s\n", message.ToString().c_str());
+    std::fflush(stderr);
+    return false;
 }
 
 void WvClient::resize(int width, int height) {
