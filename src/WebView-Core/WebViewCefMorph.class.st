@@ -390,7 +390,7 @@ WebViewCefMorph >> mouseDown: anEvent [
 		| p |
 		self comeToFront.
 		p := self toBrowserCoords: anEvent position.
-		self writeCommand: { 'type' -> 'click'. 'x' -> p x. 'y' -> p y } asDictionary.
+		self writeCommand: { 'type' -> 'down'. 'x' -> p x. 'y' -> p y } asDictionary.
 		self takeKeyboardFocus ]
 		label: 'mouseDown'
 ]
@@ -400,7 +400,16 @@ WebViewCefMorph >> mouseMove: anEvent [
 	| p |
 	anEvent anyButtonPressed ifFalse: [ ^ self ].
 	p := self toBrowserCoords: anEvent position.
-	self writeCommand: { 'type' -> 'move'. 'x' -> p x. 'y' -> p y } asDictionary
+	self writeCommand: { 'type' -> 'move'. 'x' -> p x. 'y' -> p y. 'buttons' -> 1 } asDictionary
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> mouseUp: anEvent [
+	self withErrorLog: [
+		| p |
+		p := self toBrowserCoords: anEvent position.
+		self writeCommand: { 'type' -> 'up'. 'x' -> p x. 'y' -> p y } asDictionary ]
+		label: 'mouseUp'
 ]
 
 { #category : 'event handling' }

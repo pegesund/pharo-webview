@@ -59,7 +59,13 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
     CefRefPtr<CefBrowser> browser = client->browser();
 
     if (type == "move") {
+        // Carry the left-button-held state so a drag becomes a text selection.
+        if (intOf(d, "buttons") & 1) m.modifiers |= EVENTFLAG_LEFT_MOUSE_BUTTON;
         host->SendMouseMoveEvent(m, false);
+    } else if (type == "down") {
+        host->SendMouseClickEvent(m, MBT_LEFT, false, 1);  // press (no release)
+    } else if (type == "up") {
+        host->SendMouseClickEvent(m, MBT_LEFT, true, 1);   // release
     } else if (type == "click") {
         host->SendMouseClickEvent(m, MBT_LEFT, false, 1);  // down
         host->SendMouseClickEvent(m, MBT_LEFT, true, 1);   // up
