@@ -4,8 +4,20 @@
 #include "include/base/cef_bind.h"
 #include "include/base/cef_callback.h"
 #include "include/wrapper/cef_closure_task.h"
+#include "include/cef_string_visitor.h"
 
 #include <cstdio>
+
+class WvSourceVisitor : public CefStringVisitor {
+public:
+    void Visit(const CefString& string) override {
+        std::string s = string.ToString();
+        std::fprintf(stderr, "[wv_host] SOURCE len=%zu first=%.80s\n",
+                     s.size(), s.c_str());
+        std::fflush(stderr);
+    }
+    IMPLEMENT_REFCOUNTING(WvSourceVisitor);
+};
 
 static int g_pumpn = 0;
 static void PumpBeginFrame(CefRefPtr<CefBrowser> browser) {
@@ -107,6 +119,7 @@ void WvClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoadin
         browser->GetMainFrame()->ExecuteJavaScript(
             "console.log('JS_ALIVE innerW=' + window.innerWidth + ' vis=' + document.visibilityState)",
             "wvdiag", 0);
+        browser->GetMainFrame()->GetSource(new WvSourceVisitor());
     }
 }
 
@@ -116,6 +129,7 @@ bool WvClient::OnConsoleMessage(CefRefPtr<CefBrowser>, cef_log_severity_t,
     std::fflush(stderr);
     return false;
 }
+
 
 void WvClient::resize(int width, int height) {
     width_.store(width);

@@ -27,9 +27,7 @@ void WvApp::OnBeforeCommandLineProcessing(const CefString&,
     // to be declared unusable) with the SwiftShader software GL backend.
     command_line->AppendSwitch("in-process-gpu");
     command_line->AppendSwitch("disable-gpu-sandbox");
-    command_line->AppendSwitch("disable-gpu-compositing");
-    command_line->AppendSwitchWithValue("use-gl", "angle");
-    command_line->AppendSwitchWithValue("use-angle", "swiftshader");
+    command_line->AppendSwitch("single-process");
     // Do NOT touch the macOS Keychain: ad-hoc signing changes the binary hash
     // every build, so the Keychain ACL re-prompts endlessly and blocks startup
     // (which also stalled OnPaint). A mock keychain + basic password store
