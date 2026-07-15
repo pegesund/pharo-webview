@@ -1,168 +1,245 @@
 # pharo-webview
 
-A real web browser (Chromium, via CEF) running **as a Morphic morph** in Pharo —
-GPU-composited at the SDL present step, with raw BGRA frames over shared memory
-(no PNG, no per-frame decode). Mouse, keyboard, resize, navigation, multiple
-simultaneous browsers, and a tabbed browser example all work.
+**A real web browser — full Chromium, via CEF — running as a first-class Morphic morph inside Pharo.**
 
-The full plan and live milestone status live **in the image** as
-`WebViewProjectPlan` (package `WebView-Planning`):
-`WebViewProjectPlan planMarkdown`, `WebViewProjectPlan statusString`,
-`WebViewProjectPlan reportAt: #M3CEF` (etc.).
+Not a screenshot, not an embedded native window bolted on top: the page is
+GPU-composited into the Pharo world at the SDL present step from raw BGRA frames
+over shared memory (no PNG, no per-frame decode). It behaves like any other
+morph — you can drag it, stack morphs over it, put it in a window, script it,
+and get callbacks back from the page's JavaScript.
 
-## Status — all milestones done
+![A live Wikipedia page rendered as a Pharo morph with a working toolbar](docs/feature-browser-widget.png)
 
-| Milestone | What it delivered |
-|-----------|-------------------|
-| M0 Rig proof | Renderer/present internals verified against the live Pharo 14 image |
-| M1 Texture proof | Pharo-side buffer GPU-composited over the world at the present step |
-| M2 Shim skeleton | Rust cdylib + fake engine behind a flat C ABI, driven over uFFI |
-| M3 Real browser | **In-process CEF (OSR) rendered live in a morph** via raw-BGRA shared memory (`docs/m3-cef-in-morph.png`). A CDP-screencast backend also exists as a fallback. |
-| M4 Input | Mouse click/move/scroll + keyboard routed morph → CEF (`docs/m4-cef-click.png`) |
-| M5 Lifecycle & polish | Process lifecycle, resize, focus, **multiple simultaneous browsers**, a **tabbed browser** example, dirty-rect uploads, distribution scripts |
+> ⚠️ **Platform: macOS (Apple Silicon / arm64) only, so far.** This is where it
+> has been built and tested. The architecture is portable (CEF + SDL + POSIX
+> shared memory), but the host app is currently a macOS `.app` bundle with
+> macOS-specific launch and code-signing. Linux/Windows are not done yet — help
+> welcome.
 
-## Architecture (CEF backend)
+---
 
-```
-WebViewCefMorph (Morphic)  ── owns ──►  cef_host.app (separate process)
-   │  reads frames                          │  CEF windowless/OSR
-   │                                        │  OnPaint → raw BGRA + dirty rects
-   ▼                                        ▼
-WvSharedMemory (uFFI mmap) ◄── POSIX shared-memory file ──  WvShm writer
-   │  ExternalAddress
-   ▼
-WebViewFormRenderer (OSSDL2FormRenderer subclass, priority 3)
-   multi-overlay: one texture per webview, composited in z-order before present
-   ▲  input: morph events → input.jsonl → WvControl → CEF Send*Event / navigation
-```
+## What you get
 
-Why this shape (all hard-won — see `WebViewProjectPlan reportAt: #M3CEF`):
-- **Separate process**, not in-process CEF: macOS bundle/threading/crash-isolation.
-- CEF command line that actually renders headless on macOS:
-  `--in-process-gpu --disable-gpu-sandbox --single-process --use-mock-keychain
-  --password-store=basic` (the missing `--single-process` was the unlock — the
-  renderer subprocess never spawned otherwise).
+- 🌐 **Real Chromium** — modern JS, CSS, video, fonts, HTTPS. It's CEF 138 running
+  windowless (offscreen), not a toy renderer.
+- 🧩 **A true morph** — lives in the Morphic world, composited every frame. Drag
+  it, resize it, embed it in your own widgets.
+- 🪟 **Correct z-order** — morphs (menus, panels, halos) can sit **on top of** the
+  live page; bring the browser to front and it covers them again.
+- ⌨️ **Full input** — mouse click / move / scroll, keyboard, focus, resize, and
+  browser navigation (back / forward / reload / address).
+- 🔁 **Multiple simultaneous browsers** — each is its own morph and its own
+  isolated process; a tabbed multi-view example is included.
+- 📜 **Scriptable from Pharo** — run arbitrary JavaScript, manipulate the DOM, and
+  get the expression's value back as a Pharo object.
+- 📣 **Callbacks from the page** — page-load / title / error events, plus a
+  `window.pharo.emit(name, data)` bridge so page JS can push structured data
+  straight into your Pharo blocks.
 
-## Layout
+---
 
-```
-src/            Tonel export of the Pharo packages:
-                WebView-Core (morphs + renderer), WebView-FFI (WvShim, WvSharedMemory),
-                WebView-Example (WebViewBrowserMorph, WebViewTabbedBrowserMorph, WebViewMenuBrowserMorph),
-                WebView-Planning, WebView-Core-Tests
-cef_host/       The CEF host app (C++): CefRenderHandler → shared memory, input channel,
-                navigation. third_party/cef holds the CEF distribution (fetched, gitignored).
-shim/           Rust cdylib (wvshim): flat C ABI, fake engine (M2 stepping stone)
-cdp/            chrome-screencast.mjs — headless-Chrome CDP fallback backend; demo pages
-docs/           milestone verification screenshots; DISTRIBUTION.md
-scripts/        fetch-cef.sh, build-cef-host.sh, restart-image.sh
-```
+## Features in pictures
 
-## Build & run
+### Morphs compose over the live browser (z-order)
+
+A plain Pharo `Morph` dropped on top of a live Chromium page. The browser stays
+composited underneath, per-frame, respecting the real Morphic stacking order.
+
+![A Pharo morph sitting on top of a live browser page](docs/feature-zorder.png)
+
+### A dropdown menu that overlays the page
+
+`WebViewMenuBrowserMorph` — a browser widget with a "Steder" menu built from
+morphs. The dropdown draws over the live page, and the bar shows the page title
+live via an `onTitleChange:` callback.
+
+![A dropdown menu overlaying a live web page](docs/feature-menu-overlay.png)
+
+### Run JavaScript & edit the DOM from Pharo
+
+This banner and the recoloured headings were injected into the live page from
+Pharo with `webview evalJs: '…'`.
+
+![A banner injected into a live page from Pharo via evalJs](docs/feature-scripting.png)
+
+### Many browsers at once
+
+Independent browser morphs, each with its own toolbar and its own `cef_host`
+process, running side by side.
+
+![Two independent browser morphs side by side](docs/feature-multi-browser.png)
+
+---
+
+## Quick start
+
+### 1. Build the CEF host (macOS, arm64)
+
+**Prerequisites:** Xcode command-line tools, `cmake`, `ninja`.
 
 ```bash
-scripts/fetch-cef.sh        # download the pinned CEF distribution
-scripts/build-cef-host.sh   # build + ad-hoc sign cef_host.app
+git clone https://github.com/pegesund/pharo-webview.git
+cd pharo-webview
+scripts/fetch-cef.sh          # download the pinned CEF 138 distribution (~200 MB)
+scripts/build-cef-host.sh     # build + ad-hoc code-sign cef_host.app
 ```
 
-Then in Pharo (packages loaded from `src/`):
+This produces `cef_host/build/cef_host.app`. Ad-hoc signing is enough for local
+use; distributing to other Macs needs Developer ID signing + notarization (see
+[`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md)).
+
+### 2. Load the Pharo packages (Pharo 14)
 
 ```smalltalk
-WebViewFormRenderer install.                      "activate the compositing renderer"
-WebViewBrowserMorph new openInWorld.              "a browser widget (toolbar + address bar)"
-WebViewTabbedBrowserMorph new openInWorld.        "a tabbed multi-view browser"
-WebViewMenuBrowserMorph open.                     "a 'Steder' dropdown menu that overlays the page (z-order demo)"
+Metacello new
+	repository: 'github://pegesund/pharo-webview:main/src';
+	baseline: 'WebView';
+	load.
 ```
 
-The morph launches/kills its own `cef_host` process. Point the Pharo side at a
-different binary with the `WV_CEF_HOST` env var or `WebViewCefMorph binaryPath:`.
+Or, working from a local clone, add it in Iceberg (the source directory is
+`src/`) and load the `WebView-*` packages.
 
-## The image and the MCP bridge
+### 3. Open a browser
 
-- Image: `~/Documents/Pharo/images/…/Pharo14.0-browser.image` (Pharo 14).
-- The image auto-resumes its `SisServer` (PharoSmalltalkInteropServer, port 8086)
-  on boot; `~/Library/Preferences/pharo/startup.st` has a delayed fallback that
-  starts one only if the port is free.
-- Health check: `curl -m 8 -X POST localhost:8086/eval -H 'Content-Type: application/json' -d '{"code":"1+1"}'`.
+```smalltalk
+WebViewFormRenderer install.                 "activate the compositing renderer (once)"
 
-## Running JavaScript & manipulating the DOM from Pharo
+WebViewBrowserMorph new openInWorld.          "a browser widget: toolbar + address bar"
+WebViewTabbedBrowserMorph new openInWorld.    "a tabbed, multi-view browser"
+WebViewMenuBrowserMorph open.                 "the 'Steder' dropdown-menu demo (z-order)"
+```
 
-`WebViewCefMorph` can push JavaScript into the page (an `eval` command over the
-input channel → `CefFrame::ExecuteJavaScript` in the main frame):
+Each morph launches and kills its own `cef_host` process. Point Pharo at a
+specific binary with the `WV_CEF_HOST` environment variable or
+`WebViewCefMorph binaryPath:`. It defaults to `cef_host/build/cef_host.app`.
+
+---
+
+## Scripting the page from Pharo
+
+Push JavaScript into the page (an `eval` command → `CefFrame::ExecuteJavaScript`
+in the main frame):
 
 ```smalltalk
 "fire-and-forget — mutate the DOM"
 webview evalJs: 'document.body.style.background = "#ffe000"'.
 webview evalJs: 'document.querySelector("h1").textContent = "Hei fra Pharo"'.
 
-"expression → value back in Pharo (via the window.pharo bridge, on the UI process)"
-webview evalJs: '2 + 40'                          then: [ :r | r "=> 42" ].
-webview evalJs: 'document.title'                  then: [ :r | r "=> a String" ].
-webview evalJs: 'JSON.parse(localStorage.foo||"{}")' then: [ :r | r "=> a Dictionary" ].
+"expression -> value back in Pharo (delivered on the UI process)"
+webview evalJs: '2 + 40'                              then: [ :r | r "=> 42" ].
+webview evalJs: 'document.title'                      then: [ :r | r "=> a String" ].
+webview evalJs: 'JSON.parse(localStorage.foo || "{}")' then: [ :r | r "=> a Dictionary" ].
 
 "multiple statements: use a function expression that returns"
 webview
-  evalJs: '(function(){ document.body.insertAdjacentHTML("afterbegin","<h2>hi</h2>");
-                        return document.querySelectorAll("h2").length })()'
-  then: [ :n | n "=> the count" ].
+	evalJs: '(function(){ document.body.insertAdjacentHTML("afterbegin","<h2>hi</h2>");
+	                      return document.querySelectorAll("h2").length })()'
+	then: [ :n | n "=> the count" ].
 ```
 
-`evalJs:then:` wraps the expression, ships its result through
-`window.pharo.emit('__eval', …)`, and delivers it to the block; JS numbers,
-strings, booleans, arrays and objects arrive as the matching Pharo objects
-(objects → `Dictionary`). A JS exception is caught and logged. Values must be
-JSON-able. Because commands are JSON-escaped, the JS may contain quotes, braces
-and newlines freely.
+`evalJs:then:` ships the expression's result back through the `window.pharo`
+bridge; JS numbers, strings, booleans, arrays and objects arrive as the matching
+Pharo objects (objects → `Dictionary`). JS exceptions are caught and logged.
+Commands are JSON-escaped, so the JS may contain quotes, braces and newlines
+freely.
 
-## Events & JS ↔ Pharo callbacks
+## Callbacks from the page
 
-`cef_host` writes a reverse event channel (`<control>.events`, one JSON object per
-line); `WebViewCefMorph` tails it in its step loop and dispatches to blocks you
-register. Lifecycle events come from CEF's load/display handlers; a
-`window.pharo.emit(name, data)` bridge (injected into every V8 context before page
-scripts) lets page JavaScript push structured data to Pharo.
+`cef_host` writes a reverse event channel that `WebViewCefMorph` tails and
+dispatches to blocks you register. Lifecycle events come from CEF's load/display
+handlers; page JavaScript can push its own via `window.pharo.emit(name, data)`
+(the bridge is injected into every V8 context before page scripts run).
 
 ```smalltalk
 webview onPageLoad:    [ :e | Transcript showln: 'loaded ', (e at: 'url') ].
 webview onTitleChange: [ :e | Transcript showln: (e at: 'title') ].
 webview onLoadError:   [ :e | Transcript showln: 'error ', (e at: 'errorText') ].
-webview onJs:          [ :e | inspect: (e at: 'data') ].          "any emit()"
-webview onJs: 'cart'   do: [ :e | updateCart: (e at: 'data') ].   "emit('cart', …)"
+webview onJs:          [ :e | (e at: 'data') inspect ].            "any emit()"
+webview onJs: 'cart'   do: [ :e | self updateCart: (e at: 'data') ]. "emit('cart', …)"
 "generic:  webview onEvent: #loadEnd do: [ :e | … ]"
 ```
 
 ```js
 // in the page:
-window.pharo.emit('cart', { items: 3, total: 49.9 });   // -> arrives as a Dictionary
+window.pharo.emit('cart', { items: 3, total: 49.9 });   // -> arrives as a Dictionary in Pharo
 ```
 
 Event kinds: `loadStart`, `loadEnd` (`url`, `httpStatus`), `loadingState`
 (`isLoading`, `canGoBack`, `canGoForward`), `loadError`, `title`, and `js`
-(`name`, `data`). The block arg is the parsed event `Dictionary`; callbacks run on
-the UI process, wrapped so one failing block can't break stepping.
-`WebViewMenuBrowserMorph` shows the live page title in its bar via `onTitleChange:`.
+(`name`, `data`). The block argument is the parsed event `Dictionary`; callbacks
+run on the UI process, each wrapped so one failing block can't break stepping.
 
-## Z-order (Morphs over the browser)
+---
 
-The browser texture composites on top of the world in its rectangle, but it is
-**occlusion-clipped to the live Morphic z-order**: before each present, the
-renderer subtracts the device rectangles of any morph in front of the browser
-morph (at any ancestor level) from the browser's bounds, and copies the CEF
-texture only into the remaining pieces (`WebViewFormRenderer>>occludersFor:target:`
-+ `drawOverlayOccluded:`). So a Morph placed over the browser appears on top of
-the page, and bringing the browser `comeToFront` covers the Morph again — z-order
-is respected every frame.
+## How it works
 
-This replaced an earlier attempt at alpha-hole compositing (world texture as
-ARGB8888 + a punched transparent hole): on this macOS/Metal SDL backend an
-ARGB8888 streaming texture uploaded from the Pharo world Form rendered
-transparent regardless of the Form's opaque alpha, so the occlusion-clipping
-route (which keeps the known-good XRGB8888 world texture) is used instead.
+```
+WebViewCefMorph (Morphic)  ── owns ──►  cef_host.app (separate process)
+   │  reads frames                          │  CEF 138 windowless / OSR
+   │                                        │  OnPaint → raw BGRA + dirty rects
+   ▼                                        ▼
+WvSharedMemory (uFFI mmap) ◄── POSIX shared-memory file ──  WvShm writer
+   │  ExternalAddress
+   ▼
+WebViewFormRenderer (OSSDL2FormRenderer subclass)
+   composites each browser texture into the world, occlusion-clipped to
+   the live Morphic z-order, at the SDL present step
+   ▲  input: morph events → input.jsonl → WvControl → CEF Send*Event / navigation
+   ▼  events: CEF load/display handlers + window.pharo bridge → <control>.events → callbacks
+```
 
-## Known limitations (deferred post-v1)
+Design decisions, all hard-won:
 
-- Occlusion is rectangular: a morph in front clips the browser by its bounding
-  box, so non-rectangular / rounded morphs occlude a slightly larger rectangle.
-- IME, popup/`<select>` widgets, and a Servo backend are not implemented.
-- `cef_host.app` is ad-hoc signed (local use). Distribution needs Developer ID
-  signing + notarization — see `docs/DISTRIBUTION.md`.
+- **Separate process, not in-process CEF** — macOS bundle / threading / crash
+  isolation. The morph owns its `cef_host` and tears it down on close.
+- **The CEF command line that actually renders headless on macOS:**
+  `--in-process-gpu --disable-gpu-sandbox --single-process --use-mock-keychain
+  --password-store=basic`. The missing `--single-process` was the unlock — the
+  renderer subprocess never spawned otherwise.
+- **Z-order by occlusion-clipping**, not alpha: an ARGB8888 world texture with a
+  punched transparent hole rendered fully transparent on this macOS/Metal SDL
+  backend, so instead the (known-good, opaque) world texture is drawn first and
+  each browser texture is copied on top only into the parts of its bounds not
+  covered by morphs in front of it.
+
+## Repository layout
+
+```
+src/            Pharo packages (Tonel):
+                WebView-Core (morphs + compositing renderer),
+                WebView-FFI (WvSharedMemory, WvShim),
+                WebView-Example (WebViewBrowserMorph, WebViewTabbedBrowserMorph, WebViewMenuBrowserMorph),
+                WebView-Planning, WebView-Core-Tests, BaselineOfWebView
+cef_host/       The CEF host app (C++): CefRenderHandler → shared memory, input
+                channel, navigation, reverse event channel, JS bridge.
+                third_party/cef holds the CEF distribution (fetched, gitignored).
+cdp/            A headless-Chrome CDP fallback backend + demo/probe pages.
+shim/           Rust cdylib (wvshim): flat C ABI fake engine (an early stepping stone).
+scripts/        fetch-cef.sh, build-cef-host.sh, restart-image.sh
+docs/           screenshots + DISTRIBUTION.md
+```
+
+The full build history and milestone reports also live **in the image** as
+`WebViewProjectPlan` (`WebViewProjectPlan planMarkdown`, `… statusString`).
+
+## Status & limitations
+
+Working: live Chromium in a morph; mouse/keyboard/scroll/focus/resize;
+navigation; multiple simultaneous browsers; a tabbed browser; morph z-order over
+the page; run-JS / DOM manipulation; lifecycle + page-JS callbacks.
+
+Not done yet:
+
+- **macOS/arm64 only** — no Linux/Windows host build, no Intel-mac build.
+- Occlusion is rectangular — a morph in front clips the browser by its bounding
+  box, so rounded/irregular morphs occlude a slightly larger rectangle.
+- IME, and popup / native `<select>` widgets, are not wired up.
+- `cef_host.app` is ad-hoc signed (local use); distribution needs Developer ID
+  signing + notarization.
+
+## Credits
+
+Built on the [Chromium Embedded Framework](https://bitbucket.org/chromiumembedded/cef)
+and [Pharo](https://pharo.org)'s Morphic + OSSDL2 renderer. CEF is distributed
+under its own (BSD-style) license; see the CEF distribution for details.
