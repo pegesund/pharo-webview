@@ -35,6 +35,9 @@ and get callbacks back from the page's JavaScript.
 - 📣 **Callbacks from the page** — page-load / title / error events, plus a
   `window.pharo.emit(name, data)` bridge so page JS can push structured data
   straight into your Pharo blocks.
+- 🤖 **Automation DSL** — `WvPage` lets you script pages in linear Smalltalk
+  (`goto:`, `fill:with:`, `submit:`, `textOf:`, `count:` …), running off the UI
+  process so reads return synchronously.
 
 ---
 
@@ -171,6 +174,38 @@ Event kinds: `loadStart`, `loadEnd` (`url`, `httpStatus`), `loadingState`
 run on the UI process, each wrapped so one failing block can't break stepping.
 
 ---
+
+## Browser automation, the Smalltalk way
+
+`WvPage` is a tiny automation DSL on top of a webview. Because page reads travel
+through the async JS bridge, an automation script runs in a **background
+process** (via `on:script:`) — so reads like `textOf:` return their value
+*synchronously* without freezing the UI:
+
+```smalltalk
+| m |
+m := WvPage openBrowserOn: 'https://en.wikipedia.org'.
+WvPage on: m script: [ :page |
+	page fill: 'input[name=search]' with: 'Smalltalk-80'.
+	page submit: 'input[name=search]'.               "types, submits, waits for the result page"
+	Transcript showln: (page textOf: '#firstHeading').        "=> 'Smalltalk'"
+	Transcript showln: (page count: 'a[href^="/wiki/"]') printString ].
+```
+
+Scrape a list into Pharo objects:
+
+```smalltalk
+WvPage on: m script: [ :page |
+	page goto: 'https://news.ycombinator.com'; waitForLoad.
+	(page textsOf: '.titleline > a') doWithIndex: [ :title :i |
+		Transcript showln: i printString, '. ', title ] ].
+```
+
+- **Actions:** `goto:` `waitForLoad` `waitFor:` `click:` `clickAndWait:`
+  `fill:with:` `submit:` `pressEnterIn:` `js:`
+- **Queries** (block until the value returns): `textOf:` `textsOf:` `valueOf:`
+  `attr:of:` `exists:` `count:` `title` `url` `eval:`
+- Ready-made demos: `WvPage hackerNewsDemoOn:`, `WvPage wikipediaSearchDemoOn:for:`.
 
 ## How it works
 

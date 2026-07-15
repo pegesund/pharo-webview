@@ -92,6 +92,16 @@ WebViewCefMorph >> drawOn: aCanvas [
 	aCanvas fillRectangle: self bounds color: Color white
 ]
 
+{ #category : 'scripting' }
+WebViewCefMorph >> ensureLoadCounter [
+	"Install (once) an internal loadEnd callback that bumps #wvLoadCount, so
+	automation can wait for the NEXT navigation to complete."
+	(self hasProperty: #wvLoadCounterInstalled) ifTrue: [ ^ self ].
+	self setProperty: #wvLoadCounterInstalled toValue: true.
+	self onEvent: #loadEnd do: [ :e |
+		self setProperty: #wvLoadCount toValue: (self loadCount + 1) ]
+]
+
 { #category : 'private' }
 WebViewCefMorph >> ensureShm [
 	(shm notNil and: [ shm isValid ]) ifTrue: [ ^ true ].
@@ -123,6 +133,26 @@ WebViewCefMorph >> evalJs: jsString then: aBlock [
 		s nextPutAll: '}catch(e){window.pharo.emit("__eval",{id:'; nextPutAll: reqId printString.
 		s nextPutAll: ',ok:false,error:String((e&&e.message)||e)});}})();' ].
 	self evalJs: wrapped
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> evalJsSync: jsString [
+	"Run a JS expression and BLOCK the calling process until its value returns.
+	MUST be called from a background process (never the UI process), or the UI
+	step that delivers the result can't run. Returns nil on timeout."
+
+	| sem result done |
+	sem := Semaphore new.
+	done := false.
+	self evalJs: jsString then: [ :r |
+			result := r.
+			done := true.
+			sem signal ].
+	sem waitTimeoutMilliseconds: (self valueOfProperty: #wvSyncTimeoutMs ifAbsent: [ 10000 ]).
+	done ifFalse: [
+			WebViewProjectPlan log: 'evalJsSync timeout: ' , (jsString truncateTo: 60).
+			^ nil ].
+	^ result
 ]
 
 { #category : 'events' }
@@ -314,6 +344,11 @@ WebViewCefMorph >> launchHost [
 	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString, ' "', shmPath, '" "', inputPath, '" >/tmp/wv-cef-', id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
 	LibC runCommand: cmd.
 	WebViewProjectPlan log: 'launched cef_host #', id printString, ' at ', w printString, 'x', h printString
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> loadCount [
+	^ self valueOfProperty: #wvLoadCount ifAbsent: [ 0 ]
 ]
 
 { #category : 'geometry' }
