@@ -23,6 +23,15 @@ WebViewCoreTest >> testCdpMorphWiring [
 ]
 
 { #category : 'tests' }
+WebViewCoreTest >> testCefMorphVisibility [
+	self assert: (WebViewCefMorph includesSelector: #hide).
+	self assert: (WebViewCefMorph includesSelector: #show).
+	self assert: (WebViewCefMorph includesSelector: #maybeResize).
+	self assert: (WebViewCefMorph includesSelector: #launchHost).
+	self assert: (WebViewCefMorph includesSelector: #killHost)
+]
+
+{ #category : 'tests' }
 WebViewCoreTest >> testFormRendererMultiOverlay [
 	self assert: (WebViewFormRenderer includesSelector: #overlayFor:pixels:extent:pitch:bounds:dirtyRects:).
 	self assert: (WebViewFormRenderer includesSelector: #removeOverlayFor:).

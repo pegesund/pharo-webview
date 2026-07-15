@@ -91,6 +91,12 @@ WebViewCefMorph >> handlesMouseDown: anEvent [ ^ true
 WebViewCefMorph >> handlesMouseMove: anEvent [ ^ true
 ]
 
+{ #category : 'visibility' }
+WebViewCefMorph >> hide [
+	self visible: false.
+	self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ]
+]
+
 { #category : 'initialization' }
 WebViewCefMorph >> initialize [
 	super initialize.
@@ -239,19 +245,29 @@ WebViewCefMorph >> sendResize [
 WebViewCefMorph >> shmPath: aString [ ^ shmPath := aString
 ]
 
+{ #category : 'visibility' }
+WebViewCefMorph >> show [
+	self visible: true.
+	lastSeq := -1
+]
+
 { #category : 'accessing' }
 WebViewCefMorph >> statusPath [ ^ inputPath, '.status'
 ]
 
 { #category : 'stepping' }
 WebViewCefMorph >> step [
+	"Poll the shm; push new frames. A hidden webview (inactive tab) stops
+	compositing and drops its overlay, but its host keeps running (background tab)."
 	[
+	self visible ifFalse: [
+		self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
+		^ self ].
 	self ensureShm ifFalse: [ ^ self ].
 	shm alive ifFalse: [ ^ self ].
 	self maybeResize.
 	shm seq = lastSeq ifTrue: [ ^ self ].
 	lastSeq := shm seq.
-	(self extent = (shm width @ shm height)) ifFalse: [ ].
 	self pushFrame.
 	self changed ]
 		on: Error
