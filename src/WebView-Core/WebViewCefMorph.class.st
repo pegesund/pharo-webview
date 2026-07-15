@@ -98,6 +98,10 @@ WebViewCefMorph >> formRendererOrNil [
 ]
 
 { #category : 'event handling' }
+WebViewCefMorph >> handlesKeyDown: anEvent [ ^ true
+]
+
+{ #category : 'event handling' }
 WebViewCefMorph >> handlesKeyboard: anEvent [ ^ true
 ]
 
@@ -148,26 +152,41 @@ WebViewCefMorph >> intoWorld: aWorld [
 ]
 
 { #category : 'event handling' }
+WebViewCefMorph >> keyDown: anEvent [
+	"Navigation keys (arrows, page up/down, home, end) arrive here, not in keyStroke:.
+	Forward as a CEF key event so the page gets a real keydown AND the default action
+	(scrolling / caret movement) fires."
+	self withErrorLog: [
+		| kv code |
+		kv := anEvent keyValue.
+		code := 0.
+		kv = 30 ifTrue: [ code := 38 ].
+		kv = 31 ifTrue: [ code := 40 ].
+		kv = 28 ifTrue: [ code := 37 ].
+		kv = 29 ifTrue: [ code := 39 ].
+		kv = 11 ifTrue: [ code := 33 ].
+		kv = 12 ifTrue: [ code := 34 ].
+		kv = 1 ifTrue: [ code := 36 ].
+		kv = 4 ifTrue: [ code := 35 ].
+		code ~= 0 ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ] ]
+		label: 'keyDown'
+]
+
+{ #category : 'event handling' }
 WebViewCefMorph >> keyStroke: anEvent [
-	"Route keystrokes to CEF. Printable chars go as text; control/navigation keys
-	go with a Windows virtual key code so CEF handles them (backspace, enter, arrows...)."
-	| kv ch code |
-	kv := anEvent keyValue.
-	ch := anEvent keyCharacter.
-	code := 0.
-	kv = 8 ifTrue: [ code := 8 ].
-	kv = 9 ifTrue: [ code := 9 ].
-	(kv = 13 or: [ kv = 3 ]) ifTrue: [ code := 13 ].
-	kv = 27 ifTrue: [ code := 27 ].
-	kv = 127 ifTrue: [ code := 46 ].
-	kv = 28 ifTrue: [ code := 37 ].
-	kv = 29 ifTrue: [ code := 39 ].
-	kv = 30 ifTrue: [ code := 38 ].
-	kv = 31 ifTrue: [ code := 40 ].
-	code ~= 0
-		ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ]
-		ifFalse: [ (ch notNil and: [ ch asInteger between: 32 and: 126 ])
-			ifTrue: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ]
+	"Editing keys (backspace, tab, enter, escape, delete) + printable text."
+	self withErrorLog: [
+		| ch cv code |
+		ch := anEvent keyCharacter ifNil: [ ^ self ].
+		cv := ch asInteger.
+		code := 0.
+		cv = 8 ifTrue: [ code := 8 ]. cv = 9 ifTrue: [ code := 9 ].
+		(cv = 13 or: [ cv = 10 or: [ cv = 3 ] ]) ifTrue: [ code := 13 ].
+		cv = 27 ifTrue: [ code := 27 ]. cv = 127 ifTrue: [ code := 46 ].
+		code ~= 0
+			ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ]
+			ifFalse: [ (cv between: 32 and: 126) ifTrue: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ]
+		label: 'keyStroke'
 ]
 
 { #category : 'event handling' }
@@ -225,11 +244,13 @@ WebViewCefMorph >> maybeResize [
 
 { #category : 'event handling' }
 WebViewCefMorph >> mouseDown: anEvent [
-	| p |
-	self comeToFront.
-	p := self toBrowserCoords: anEvent position.
-	self writeCommand: { 'type' -> 'click'. 'x' -> p x. 'y' -> p y } asDictionary.
-	self takeKeyboardFocus
+	self withErrorLog: [
+		| p |
+		self comeToFront.
+		p := self toBrowserCoords: anEvent position.
+		self writeCommand: { 'type' -> 'click'. 'x' -> p x. 'y' -> p y } asDictionary.
+		self takeKeyboardFocus ]
+		label: 'mouseDown'
 ]
 
 { #category : 'event handling' }
@@ -242,17 +263,17 @@ WebViewCefMorph >> mouseMove: anEvent [
 
 { #category : 'event handling' }
 WebViewCefMorph >> mouseWheel: anEvent [
-	"Route wheel scrolling to CEF as a mouse-wheel event at the cursor position."
-	| p dx dy step |
-	p := self toBrowserCoords: anEvent position.
-	step := 60.
-	dx := 0. dy := 0.
-	anEvent isUp ifTrue: [ dy := step ].
-	anEvent isDown ifTrue: [ dy := step negated ].
-	anEvent isLeft ifTrue: [ dx := step ].
-	anEvent isRight ifTrue: [ dx := step negated ].
-	(dx = 0 and: [ dy = 0 ]) ifTrue: [ ^ self ].
-	self writeCommand: { 'type' -> 'scroll'. 'x' -> p x. 'y' -> p y. 'dx' -> dx. 'dy' -> dy } asDictionary
+	self withErrorLog: [
+		| p dx dy step |
+		p := self toBrowserCoords: anEvent position.
+		step := 60. dx := 0. dy := 0.
+		anEvent isUp ifTrue: [ dy := step ].
+		anEvent isDown ifTrue: [ dy := step negated ].
+		anEvent isLeft ifTrue: [ dx := step ].
+		anEvent isRight ifTrue: [ dx := step negated ].
+		(dx = 0 and: [ dy = 0 ]) ifFalse: [
+			self writeCommand: { 'type' -> 'scroll'. 'x' -> p x. 'y' -> p y. 'dx' -> dx. 'dy' -> dy } asDictionary ] ]
+		label: 'mouseWheel'
 ]
 
 { #category : 'frames' }
@@ -349,6 +370,13 @@ WebViewCefMorph >> wantsKeyboardFocusFor: aSubmorph [ ^ true
 
 { #category : 'stepping' }
 WebViewCefMorph >> wantsSteps [ ^ true
+]
+
+{ #category : 'private' }
+WebViewCefMorph >> withErrorLog: aBlock label: aString [
+	^ aBlock on: Error do: [ :e |
+		WebViewProjectPlan log: aString, ' ERROR: ', e class name, ' - ', (e messageText ifNil: ['nil']).
+		nil ]
 ]
 
 { #category : 'input' }

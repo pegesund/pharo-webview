@@ -1,0 +1,21 @@
+<!doctype html><meta charset=utf-8><title>Form arrow test</title>
+<style>body{font-family:-apple-system,Arial;font-size:20px;background:#0b1e3a;color:#eaf2ff;padding:30px}
+input,textarea{font-size:20px;padding:8px;width:80%;background:#0d2748;color:#fff;border:2px solid #3b82f6;border-radius:6px}
+#pos{color:#ffb020;font-size:24px;margin:14px 0}</style>
+<h2>Form arrow-key test</h2>
+<input id="in" value="ABCDEFGHIJ">
+<div id="pos">caret: -</div>
+<textarea id="ta" rows="4">line one
+line two
+line three
+line four</textarea>
+<div id="tapos">textarea caret: -</div>
+<script>
+const inp=document.getElementById('in'),pos=document.getElementById('pos');
+const ta=document.getElementById('ta'),tapos=document.getElementById('tapos');
+function upd(){pos.textContent='caret: '+inp.selectionStart;
+  tapos.textContent='textarea caret: '+ta.selectionStart;}
+inp.addEventListener('keyup',upd);inp.addEventListener('click',upd);
+ta.addEventListener('keyup',upd);ta.addEventListener('click',upd);
+inp.focus();upd();
+</script>

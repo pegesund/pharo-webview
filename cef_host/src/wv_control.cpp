@@ -67,18 +67,30 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
         std::string text = d->HasKey("text") ? d->GetString("text").ToString() : "";
         CefKeyEvent k;
         k.modifiers = 0;
+        k.is_system_key = false;
         if (code != 0) {
             // Special key (backspace, enter, arrows, ...): raw down + up.
+            // macOS needs native_key_code set for default actions (arrow-key
+            // scrolling, etc.) to fire, not just windows_key_code.
             k.windows_key_code = code;
-            k.type = KEYEVENT_RAWKEYDOWN;
-            host->SendKeyEvent(k);
-            if (!text.empty()) {
-                k.type = KEYEVENT_CHAR;
-                k.character = (char16_t)text[0];
-                k.unmodified_character = (char16_t)text[0];
-                host->SendKeyEvent(k);
+            switch (code) {
+                case 37: k.native_key_code = 123; break;
+                case 39: k.native_key_code = 124; break;
+                case 38: k.native_key_code = 126; break;
+                case 40: k.native_key_code = 125; break;
+                case 33: k.native_key_code = 116; break;
+                case 34: k.native_key_code = 121; break;
+                case 36: k.native_key_code = 115; break;
+                case 35: k.native_key_code = 119; break;
+                case 8:  k.native_key_code = 51;  break;
+                case 13: k.native_key_code = 36;  break;
+                default: k.native_key_code = 0;   break;
             }
-            k.type = KEYEVENT_KEYUP;
+            // NOTE: in --single-process mode a KEYEVENT_KEYUP mis-fires as a
+            // second DOM keydown, which double-moved the caret / double-scrolled.
+            // RAWKEYDOWN alone fires one keydown and performs the default action
+            // (caret move / scroll), which is what we want.
+            k.type = KEYEVENT_RAWKEYDOWN;
             host->SendKeyEvent(k);
         } else if (!text.empty()) {
             k.type = KEYEVENT_CHAR;
