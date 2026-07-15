@@ -472,3 +472,823 @@ ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
 [ ] in FullBlockClosure(BlockClosure)>>newProcess
 -------------------------------------------------------------------------------
 
+THERE_BE_DRAGONS_HERE
+Message not understood: RubTextFieldMorph class >> #on:text:accept:readSelection:menu:
+15 July 2026 12:42:48.617545 pm
+
+VM: Mac OS - arm64 - 1000 - CoInterpreter VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+StackToRegisterMappingCogit VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+v12.0.3-beta+0.2aa4b7c14 - Commit: 2aa4b7c14 - Date: 2026-06-03 15:53:56 +0200
+
+Image: Pharo-14.0.0+SNAPSHOT.build.733.sha.3bbdb5b622cd039d40b994796d33489350cfc18d (64 Bit)
+
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+	Receiver: #on:text:accept:readSelection:menu:
+	Receiver's instance variables: 
+#on:text:accept:readSelection:menu:
+	Arguments and temporary variables: 
+		temp1: 	on: a WebViewBrowserMorph(309124608) text: #addressText accept: #ad[..]
+		temp2: 	RubTextFieldMorph
+		temp3: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+		temp4: 	nil
+
+RubTextFieldMorph class(Object)>>doesNotUnderstand: 'on:text:accept:readSelection:menu:'
+	Receiver: RubTextFieldMorph
+	Receiver's instance variables: 
+		superclass: 	RubScrolledTextMorph
+		methodDict: 	a MethodDictionary(#acceptOnCR->RubTextFieldMorph>>#acceptOnCR [..]
+		format: 	65561
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (accessing) - 11 selector(s) Protocol (model p[..]
+		subclasses: 	{RubPluggableTextFieldMorph. SpRubTextFieldMorph}
+		name: 	#RubTextFieldMorph
+		classPool: 	nil
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	60555524
+		packageTag: 	a PackageTag(Editing-Widgets)
+		announcer: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	on: a WebViewBrowserMorph(309124608) text: #addressText accept: #ad[..]
+
+WebViewBrowserMorph>>buildToolbar
+	Receiver: a WebViewBrowserMorph(309124608)
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (800@634)
+		owner: 	nil
+		submorphs: 	#()
+		fullBounds: 	nil
+		color: 	(Color r: 0.9002932551319648 g: 0.9002932551319648 b: 0.900293255131[..]
+		extension: 	a MorphExtension (696224512)
+		webview: 	nil
+		addressField: 	nil
+		backBtn: 	a SimpleButtonMorph(880985856)
+		fwdBtn: 	a SimpleButtonMorph(905153024)
+		reloadBtn: 	a SimpleButtonMorph(132980736)
+		goBtn: 	a SimpleButtonMorph(552376576)
+		toolbarHeight: 	34
+		currentUrl: 	''
+		statusPath: 	'/tmp/wv-cef.input.status'
+		lastStatusRead: 	0
+
+	Arguments and temporary variables: 
+x
+
+WebViewBrowserMorph>>initialize
+	Receiver: a WebViewBrowserMorph(309124608)
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (800@634)
+		owner: 	nil
+		submorphs: 	#()
+		fullBounds: 	nil
+		color: 	(Color r: 0.9002932551319648 g: 0.9002932551319648 b: 0.900293255131[..]
+		extension: 	a MorphExtension (696224512)
+		webview: 	nil
+		addressField: 	nil
+		backBtn: 	a SimpleButtonMorph(880985856)
+		fwdBtn: 	a SimpleButtonMorph(905153024)
+		reloadBtn: 	a SimpleButtonMorph(132980736)
+		goBtn: 	a SimpleButtonMorph(552376576)
+		toolbarHeight: 	34
+		currentUrl: 	''
+		statusPath: 	'/tmp/wv-cef.input.status'
+		lastStatusRead: 	0
+
+	Arguments and temporary variables: 
+x
+
+WebViewBrowserMorph class(Behavior)>>new
+	Receiver: WebViewBrowserMorph
+	Receiver's instance variables: 
+		superclass: 	Morph
+		methodDict: 	a MethodDictionary(#addressAccepted:->WebViewBrowserMorph>>#add[..]
+		format: 	65552
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (initialization) - 1 selector(s) Protocol (bui[..]
+		subclasses: 	nil
+		name: 	#WebViewBrowserMorph
+		classPool: 	nil
+		sharedPools: 	an OrderedCollection()
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	nil
+		packageTag: 	a PackageTag(Uncategorized)
+		announcer: 	nil
+
+	Arguments and temporary variables: 
+x
+
+[ ] in UndefinedObject>>DoIt
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+		temp1: 	an OSSDL2BackendWindow
+
+WorldState>>runStepMethodsIn:
+	Receiver: a WorldState
+	Receiver's instance variables: 
+		hands: 	an Array(a HandMorph(648198912))
+		damageRecorder: 	a DamageRecorder
+		stepList: 	a Heap(StepMessage(#stepAt: -> a WebViewCefMorph(1031378944))(a W[..]
+		lastStepTime: 	38300207
+		lastStepMessage: 	nil
+		alarms: 	a Heap()
+		lastAlarmTime: 	38300207
+		activeHand: 	a HandMorph(648198912)
+		currentCursor: 	((CursorWithMask
+	extent: (16@16)
+	depth: 1
+	fromArray: #(
+	[..]
+		worldRenderer: 	an OSWorldRenderer
+		realWindowExtent: 	(1920@958)
+		deferredUIMessages: 	WaitfreeQueue with 1 items
+
+	Arguments and temporary variables: 
+		temp1: 	a WorldMorph(911410432) [world]
+		temp2: 	WaitfreeQueue with 1 items
+		temp3: 	[ ] in UndefinedObject>>#DoIt
+
+WorldMorph>>runStepMethods
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	nil
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+WorldState>>doOneCycleFor:
+	Receiver: a WorldState
+	Receiver's instance variables: 
+		hands: 	an Array(a HandMorph(648198912))
+		damageRecorder: 	a DamageRecorder
+		stepList: 	a Heap(StepMessage(#stepAt: -> a WebViewCefMorph(1031378944))(a W[..]
+		lastStepTime: 	38300207
+		lastStepMessage: 	nil
+		alarms: 	a Heap()
+		lastAlarmTime: 	38300207
+		activeHand: 	a HandMorph(648198912)
+		currentCursor: 	((CursorWithMask
+	extent: (16@16)
+	depth: 1
+	fromArray: #(
+	[..]
+		worldRenderer: 	an OSWorldRenderer
+		realWindowExtent: 	(1920@958)
+		deferredUIMessages: 	WaitfreeQueue with 1 items
+
+	Arguments and temporary variables: 
+		temp1: 	a WorldMorph(911410432) [world]
+
+WorldMorph>>doOneCycleNow
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	nil
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+WorldMorph>>doOneCycle
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	nil
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+[ ] in WorldMorph class>>doOneCycle
+	Receiver: WorldMorph
+	Receiver's instance variables: 
+		superclass: 	PasteUpMorph
+		methodDict: 	a MethodDictionary(#acceptDroppingMorph:event:->WorldMorph>>#ac[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (operations) - 1 selector(s) Protocol (structu[..]
+		subclasses: 	{AthensWorldMorph. OSWindowWorldMorph}
+		name: 	#WorldMorph
+		classPool: 	a Dictionary(#AllowDropFiles->nil #CursorOwnerWorld->a WorldMorp[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89369314
+		packageTag: 	a PackageTag(Worlds)
+		announcer: 	nil
+		displayScaleFactor: 	1
+		dropActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		dragActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		resizeActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+
+	Arguments and temporary variables: 
+		temp1: 	#()
+
+FullBlockClosure(BlockClosure)>>ensure:
+	Receiver: [ ] in WorldMorph class>>#doOneCycle
+	Receiver's instance variables: 
+		outerContext: 	WorldMorph class>>doOneCycle
+		compiledBlock: 	a CompiledBlock: [
+		| extraWorldsToDraw |
+		extraWorldsToDr[..]
+		numArgs: 	0
+		receiver: 	WorldMorph
+
+	Arguments and temporary variables: 
+		temp1: 	[ ] in WorldState class>>#doDrawCycleWith:
+		temp2: 	[ ] in WorldState class>>#doDrawCycleWith:
+		temp3: 	nil
+		temp4: 	nil
+
+WorldState class>>doDrawCycleWith:
+	Receiver: WorldState
+	Receiver's instance variables: 
+		superclass: 	Object
+		methodDict: 	a MethodDictionary(#activeHand->WorldState>>#activeHand #active[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (hands) - 12 selector(s) Protocol (alarms) - 5[..]
+		subclasses: 	{AthensWorldState}
+		name: 	#WorldState
+		classPool: 	a Dictionary(#CanSurrenderToOS->nil #DebugShowDamage->false #Des[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89423970
+		packageTag: 	a PackageTag(Worlds)
+
+	Arguments and temporary variables: 
+		temp1: 	[ ] in WorldMorph class>>#doOneCycle
+
+WorldMorph class>>doOneCycle
+	Receiver: WorldMorph
+	Receiver's instance variables: 
+		superclass: 	PasteUpMorph
+		methodDict: 	a MethodDictionary(#acceptDroppingMorph:event:->WorldMorph>>#ac[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (operations) - 1 selector(s) Protocol (structu[..]
+		subclasses: 	{AthensWorldMorph. OSWindowWorldMorph}
+		name: 	#WorldMorph
+		classPool: 	a Dictionary(#AllowDropFiles->nil #CursorOwnerWorld->a WorldMorp[..]
+		sharedPools: 	an OrderedCollection()
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89369314
+		packageTag: 	a PackageTag(Worlds)
+		announcer: 	nil
+		displayScaleFactor: 	1
+		dropActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		dragActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		resizeActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+
+	Arguments and temporary variables: 
+x
+
+MorphicRenderLoop>>doOneCycle
+	Receiver: a MorphicRenderLoop
+	Receiver's instance variables: 
+a MorphicRenderLoop
+	Arguments and temporary variables: 
+x
+
+MorphicRenderLoop>>doOneCycleWhile:
+	Receiver: a MorphicRenderLoop
+	Receiver's instance variables: 
+a MorphicRenderLoop
+	Arguments and temporary variables: 
+		temp1: 	[ ] in MorphicUIManager>>#spawnNewProcess
+
+[ ] in UndefinedObject(MorphicUIManager)>>spawnNewProcess
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+x
+
+[ ] in CleanBlockClosure(BlockClosure)>>newProcess
+	Receiver: [ ] in MorphicUIManager>>#spawnNewProcess
+	Receiver's instance variables: 
+		outerContext: 	nil
+		compiledBlock: 	a CompiledBlock: [ MorphicRenderLoop new doOneCycleWhile: [ [..]
+		numArgs: 	0
+		literal: 	nil
+
+	Arguments and temporary variables: 
+x
+
+
+--- The full stack ---
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+RubTextFieldMorph class(Object)>>doesNotUnderstand: 'on:text:accept:readSelection:menu:'
+WebViewBrowserMorph>>buildToolbar
+WebViewBrowserMorph>>initialize
+WebViewBrowserMorph class(Behavior)>>new
+[ ] in UndefinedObject>>DoIt
+WorldState>>runStepMethodsIn:
+WorldMorph>>runStepMethods
+WorldState>>doOneCycleFor:
+WorldMorph>>doOneCycleNow
+WorldMorph>>doOneCycle
+[ ] in WorldMorph class>>doOneCycle
+FullBlockClosure(BlockClosure)>>ensure:
+WorldState class>>doDrawCycleWith:
+WorldMorph class>>doOneCycle
+MorphicRenderLoop>>doOneCycle
+MorphicRenderLoop>>doOneCycleWhile:
+[ ] in UndefinedObject(MorphicUIManager)>>spawnNewProcess
+[ ] in CleanBlockClosure(BlockClosure)>>newProcess
+-------------------------------------------------------------------------------
+
+THERE_BE_DRAGONS_HERE
+Message not understood: ByteString >> #browser
+15 July 2026 12:43:28.273943 pm
+
+VM: Mac OS - arm64 - 1000 - CoInterpreter VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+StackToRegisterMappingCogit VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+v12.0.3-beta+0.2aa4b7c14 - Commit: 2aa4b7c14 - Date: 2026-06-03 15:53:56 +0200
+
+Image: Pharo-14.0.0+SNAPSHOT.build.733.sha.3bbdb5b622cd039d40b994796d33489350cfc18d (64 Bit)
+
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+	Receiver: #browser
+	Receiver's instance variables: 
+#browser
+	Arguments and temporary variables: 
+		temp1: 	browser
+		temp2: 	''
+		temp3: 	Instance of ByteString did not understand #browser
+		temp4: 	nil
+
+ByteString(Object)>>doesNotUnderstand: 'browser'
+	Receiver: ''
+	Receiver's instance variables: 
+''
+	Arguments and temporary variables: 
+		temp1: 	browser
+
+[ ] in UndefinedObject>>DoIt
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+		temp1: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+		temp2: 	nil
+
+CleanBlockClosure(BlockClosure)>>cull:
+	Receiver: [ ] in UndefinedObject>>#DoIt
+	Receiver's instance variables: 
+		outerContext: 	nil
+		compiledBlock: 	a CompiledBlock: [ :e | WebViewProjectPlan log: ''browser op[..]
+		numArgs: 	1
+		literal: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+
+Context>>evaluateSignal:
+	Receiver: CleanBlockClosure(BlockClosure)>>on:do:
+	Receiver's instance variables: 
+		sender: 	[ ] in UndefinedObject>>DoIt
+		pc: 	30
+		stackp: 	2
+		method: 	BlockClosure>>#on:do:
+		closureOrNil: 	nil
+		receiver: 	[ ] in UndefinedObject>>#DoIt
+
+	Arguments and temporary variables: 
+		temp1: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+		temp2: 	nil
+
+Context>>handleSignal:
+	Receiver: CleanBlockClosure(BlockClosure)>>on:do:
+	Receiver's instance variables: 
+		sender: 	[ ] in UndefinedObject>>DoIt
+		pc: 	30
+		stackp: 	2
+		method: 	BlockClosure>>#on:do:
+		closureOrNil: 	nil
+		receiver: 	[ ] in UndefinedObject>>#DoIt
+
+	Arguments and temporary variables: 
+		temp1: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+
+MessageNotUnderstood(Exception)>>signal
+	Receiver: Instance of RubTextFieldMorph class did not understand #on:text:accept:readSelection:menu:
+	Receiver's instance variables: 
+		messageText: 	nil
+		tag: 	nil
+		signaler: 	RubTextFieldMorph
+		signalContext: 	MessageNotUnderstood(Exception)>>signal
+		handlerContext: 	CleanBlockClosure(BlockClosure)>>on:do:
+		outerContext: 	nil
+		message: 	on: a WebViewBrowserMorph(129274112) text: #addressText accept: #a[..]
+		receiver: 	RubTextFieldMorph
+		hasToResend: 	false
+
+	Arguments and temporary variables: 
+x
+
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+	Receiver: #on:text:accept:readSelection:menu:
+	Receiver's instance variables: 
+#on:text:accept:readSelection:menu:
+	Arguments and temporary variables: 
+		temp1: 	on: a WebViewBrowserMorph(129274112) text: #addressText accept: #ad[..]
+		temp2: 	RubTextFieldMorph
+		temp3: 	Instance of RubTextFieldMorph class did not understand #on:text:acc[..]
+		temp4: 	nil
+
+RubTextFieldMorph class(Object)>>doesNotUnderstand: 'on:text:accept:readSelection:menu:'
+	Receiver: RubTextFieldMorph
+	Receiver's instance variables: 
+		superclass: 	RubScrolledTextMorph
+		methodDict: 	a MethodDictionary(#acceptOnCR->RubTextFieldMorph>>#acceptOnCR [..]
+		format: 	65561
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (accessing) - 11 selector(s) Protocol (model p[..]
+		subclasses: 	{RubPluggableTextFieldMorph. SpRubTextFieldMorph}
+		name: 	#RubTextFieldMorph
+		classPool: 	nil
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	60555524
+		packageTag: 	a PackageTag(Editing-Widgets)
+		announcer: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	on: a WebViewBrowserMorph(129274112) text: #addressText accept: #ad[..]
+
+WebViewBrowserMorph>>buildToolbar
+	Receiver: a WebViewBrowserMorph(129274112)
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (800@634)
+		owner: 	nil
+		submorphs: 	#()
+		fullBounds: 	nil
+		color: 	(Color r: 0.9002932551319648 g: 0.9002932551319648 b: 0.900293255131[..]
+		extension: 	a MorphExtension (532172800)
+		webview: 	nil
+		addressField: 	nil
+		backBtn: 	a SimpleButtonMorph(1032866304)
+		fwdBtn: 	a SimpleButtonMorph(201785088)
+		reloadBtn: 	a SimpleButtonMorph(525562624)
+		goBtn: 	a SimpleButtonMorph(532659712)
+		toolbarHeight: 	34
+		currentUrl: 	''
+		statusPath: 	'/tmp/wv-cef.input.status'
+		lastStatusRead: 	0
+
+	Arguments and temporary variables: 
+x
+
+WebViewBrowserMorph>>initialize
+	Receiver: a WebViewBrowserMorph(129274112)
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (800@634)
+		owner: 	nil
+		submorphs: 	#()
+		fullBounds: 	nil
+		color: 	(Color r: 0.9002932551319648 g: 0.9002932551319648 b: 0.900293255131[..]
+		extension: 	a MorphExtension (532172800)
+		webview: 	nil
+		addressField: 	nil
+		backBtn: 	a SimpleButtonMorph(1032866304)
+		fwdBtn: 	a SimpleButtonMorph(201785088)
+		reloadBtn: 	a SimpleButtonMorph(525562624)
+		goBtn: 	a SimpleButtonMorph(532659712)
+		toolbarHeight: 	34
+		currentUrl: 	''
+		statusPath: 	'/tmp/wv-cef.input.status'
+		lastStatusRead: 	0
+
+	Arguments and temporary variables: 
+x
+
+WebViewBrowserMorph class(Behavior)>>new
+	Receiver: WebViewBrowserMorph
+	Receiver's instance variables: 
+		superclass: 	Morph
+		methodDict: 	a MethodDictionary(#addressAccepted:->WebViewBrowserMorph>>#add[..]
+		format: 	65552
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (initialization) - 1 selector(s) Protocol (bui[..]
+		subclasses: 	nil
+		name: 	#WebViewBrowserMorph
+		classPool: 	nil
+		sharedPools: 	an OrderedCollection()
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	nil
+		packageTag: 	a PackageTag(Uncategorized)
+		announcer: 	nil
+
+	Arguments and temporary variables: 
+x
+
+[ ] in UndefinedObject>>DoIt
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+		temp1: 	nil
+
+CleanBlockClosure(BlockClosure)>>on:do:
+	Receiver: [ ] in UndefinedObject>>#DoIt
+	Receiver's instance variables: 
+		outerContext: 	nil
+		compiledBlock: 	a CompiledBlock: [ | m |
+	WebViewBrowserMorph allInstances d[..]
+		numArgs: 	0
+		literal: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	Error
+		temp2: 	[ ] in UndefinedObject>>#DoIt
+
+[ ] in UndefinedObject>>DoIt
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+x
+
+WorldState>>runStepMethodsIn:
+	Receiver: a WorldState
+	Receiver's instance variables: 
+		hands: 	an Array(a HandMorph(648198912))
+		damageRecorder: 	a DamageRecorder
+		stepList: 	a Heap()
+		lastStepTime: 	38309223
+		lastStepMessage: 	nil
+		alarms: 	a Heap()
+		lastAlarmTime: 	38339993
+		activeHand: 	a HandMorph(648198912)
+		currentCursor: 	((CursorWithMask
+	extent: (16@16)
+	depth: 1
+	fromArray: #(
+	[..]
+		worldRenderer: 	an OSWorldRenderer
+		realWindowExtent: 	(1920@958)
+		deferredUIMessages: 	WaitfreeQueue with 0 items
+
+	Arguments and temporary variables: 
+		temp1: 	a WorldMorph(911410432) [world]
+		temp2: 	WaitfreeQueue with 0 items
+		temp3: 	[ ] in UndefinedObject>>#DoIt
+
+WorldMorph>>runStepMethods
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	(0@0) corner: (1920@958)
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+WorldState>>doOneCycleFor:
+	Receiver: a WorldState
+	Receiver's instance variables: 
+		hands: 	an Array(a HandMorph(648198912))
+		damageRecorder: 	a DamageRecorder
+		stepList: 	a Heap()
+		lastStepTime: 	38309223
+		lastStepMessage: 	nil
+		alarms: 	a Heap()
+		lastAlarmTime: 	38339993
+		activeHand: 	a HandMorph(648198912)
+		currentCursor: 	((CursorWithMask
+	extent: (16@16)
+	depth: 1
+	fromArray: #(
+	[..]
+		worldRenderer: 	an OSWorldRenderer
+		realWindowExtent: 	(1920@958)
+		deferredUIMessages: 	WaitfreeQueue with 0 items
+
+	Arguments and temporary variables: 
+		temp1: 	a WorldMorph(911410432) [world]
+
+WorldMorph>>doOneCycleNow
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	(0@0) corner: (1920@958)
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+WorldMorph>>doOneCycle
+	Receiver: a WorldMorph(911410432) [world]
+	Receiver's instance variables: 
+		bounds: 	(0@0) corner: (1920@958)
+		owner: 	nil
+		submorphs: 	an Array(a MenubarMorph(897392896) a TaskbarMorph(891694848) a S[..]
+		fullBounds: 	(0@0) corner: (1920@958)
+		color: 	(Color r: 0.14858260019550343 g: 0.19648093841642228 b: 0.2199413489[..]
+		extension: 	a MorphExtension (500941568) [other:  (dragEnabled -> true) (dro[..]
+		borderWidth: 	0
+		borderColor: 	(Color r: 0.8611925708699902 g: 1.0 b: 0.7223851417399805 alph[..]
+		backgroundMorph: 	nil
+		griddingOn: 	nil
+		worldState: 	a WorldState
+		zoomFactor: 	1
+
+	Arguments and temporary variables: 
+x
+
+[ ] in WorldMorph class>>doOneCycle
+	Receiver: WorldMorph
+	Receiver's instance variables: 
+		superclass: 	PasteUpMorph
+		methodDict: 	a MethodDictionary(#acceptDroppingMorph:event:->WorldMorph>>#ac[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (operations) - 1 selector(s) Protocol (structu[..]
+		subclasses: 	{AthensWorldMorph. OSWindowWorldMorph}
+		name: 	#WorldMorph
+		classPool: 	a Dictionary(#AllowDropFiles->nil #CursorOwnerWorld->a WorldMorp[..]
+		sharedPools: 	an OrderedCollection()
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89369314
+		packageTag: 	a PackageTag(Worlds)
+		announcer: 	nil
+		displayScaleFactor: 	1
+		dropActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		dragActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		resizeActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+
+	Arguments and temporary variables: 
+		temp1: 	#()
+
+FullBlockClosure(BlockClosure)>>ensure:
+	Receiver: [ ] in WorldMorph class>>#doOneCycle
+	Receiver's instance variables: 
+		outerContext: 	WorldMorph class>>doOneCycle
+		compiledBlock: 	a CompiledBlock: [
+		| extraWorldsToDraw |
+		extraWorldsToDr[..]
+		numArgs: 	0
+		receiver: 	WorldMorph
+
+	Arguments and temporary variables: 
+		temp1: 	[ ] in WorldState class>>#doDrawCycleWith:
+		temp2: 	[ ] in WorldState class>>#doDrawCycleWith:
+		temp3: 	nil
+		temp4: 	nil
+
+WorldState class>>doDrawCycleWith:
+	Receiver: WorldState
+	Receiver's instance variables: 
+		superclass: 	Object
+		methodDict: 	a MethodDictionary(#activeHand->WorldState>>#activeHand #active[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (hands) - 12 selector(s) Protocol (alarms) - 5[..]
+		subclasses: 	{AthensWorldState}
+		name: 	#WorldState
+		classPool: 	a Dictionary(#CanSurrenderToOS->nil #DebugShowDamage->false #Des[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89423970
+		packageTag: 	a PackageTag(Worlds)
+
+	Arguments and temporary variables: 
+		temp1: 	[ ] in WorldMorph class>>#doOneCycle
+
+WorldMorph class>>doOneCycle
+	Receiver: WorldMorph
+	Receiver's instance variables: 
+		superclass: 	PasteUpMorph
+		methodDict: 	a MethodDictionary(#acceptDroppingMorph:event:->WorldMorph>>#ac[..]
+		format: 	65548
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (operations) - 1 selector(s) Protocol (structu[..]
+		subclasses: 	{AthensWorldMorph. OSWindowWorldMorph}
+		name: 	#WorldMorph
+		classPool: 	a Dictionary(#AllowDropFiles->nil #CursorOwnerWorld->a WorldMorp[..]
+		sharedPools: 	an OrderedCollection()
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	89369314
+		packageTag: 	a PackageTag(Worlds)
+		announcer: 	nil
+		displayScaleFactor: 	1
+		dropActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		dragActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+		resizeActionBlock: 	[ ] in CavroisWindowManager>>#initializeBlocks
+
+	Arguments and temporary variables: 
+x
+
+MorphicRenderLoop>>doOneCycle
+	Receiver: a MorphicRenderLoop
+	Receiver's instance variables: 
+a MorphicRenderLoop
+	Arguments and temporary variables: 
+x
+
+MorphicRenderLoop>>doOneCycleWhile:
+	Receiver: a MorphicRenderLoop
+	Receiver's instance variables: 
+a MorphicRenderLoop
+	Arguments and temporary variables: 
+		temp1: 	[ ] in MorphicUIManager>>#spawnNewProcess
+
+[ ] in UndefinedObject(MorphicUIManager)>>spawnNewProcess
+	Receiver: nil
+	Receiver's instance variables: 
+nil
+	Arguments and temporary variables: 
+x
+
+[ ] in CleanBlockClosure(BlockClosure)>>newProcess
+	Receiver: [ ] in MorphicUIManager>>#spawnNewProcess
+	Receiver's instance variables: 
+		outerContext: 	nil
+		compiledBlock: 	a CompiledBlock: [ MorphicRenderLoop new doOneCycleWhile: [ [..]
+		numArgs: 	0
+		literal: 	nil
+
+	Arguments and temporary variables: 
+x
+
+
+--- The full stack ---
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+ByteString(Object)>>doesNotUnderstand: 'browser'
+[ ] in UndefinedObject>>DoIt
+CleanBlockClosure(BlockClosure)>>cull:
+Context>>evaluateSignal:
+Context>>handleSignal:
+MessageNotUnderstood(Exception)>>signal
+ByteSymbol(Symbol)>>handleDoesNotUnderstand:to:
+RubTextFieldMorph class(Object)>>doesNotUnderstand: 'on:text:accept:readSelection:menu:'
+WebViewBrowserMorph>>buildToolbar
+WebViewBrowserMorph>>initialize
+WebViewBrowserMorph class(Behavior)>>new
+[ ] in UndefinedObject>>DoIt
+CleanBlockClosure(BlockClosure)>>on:do:
+[ ] in UndefinedObject>>DoIt
+WorldState>>runStepMethodsIn:
+WorldMorph>>runStepMethods
+WorldState>>doOneCycleFor:
+WorldMorph>>doOneCycleNow
+WorldMorph>>doOneCycle
+[ ] in WorldMorph class>>doOneCycle
+FullBlockClosure(BlockClosure)>>ensure:
+WorldState class>>doDrawCycleWith:
+WorldMorph class>>doOneCycle
+MorphicRenderLoop>>doOneCycle
+MorphicRenderLoop>>doOneCycleWhile:
+[ ] in UndefinedObject(MorphicUIManager)>>spawnNewProcess
+[ ] in CleanBlockClosure(BlockClosure)>>newProcess
+-------------------------------------------------------------------------------
+

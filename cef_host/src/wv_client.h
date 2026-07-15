@@ -6,14 +6,17 @@
 #include "include/cef_render_handler.h"
 #include "include/cef_life_span_handler.h"
 #include "include/cef_load_handler.h"
+#include "include/cef_display_handler.h"
 #include "wv_shm.h"
 
 #include <atomic>
+#include <string>
 
 class WvClient : public CefClient,
                  public CefRenderHandler,
                  public CefLifeSpanHandler,
-                 public CefLoadHandler {
+                 public CefLoadHandler,
+                 public CefDisplayHandler {
 public:
     WvClient(WvShm* shm, int width, int height);
 
@@ -21,6 +24,13 @@ public:
     CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
     CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
     CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
+    CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
+
+    // CefDisplayHandler: write the current URL to the status file (reverse channel)
+    void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+                         const CefString& url) override;
+
+    void setStatusPath(const std::string& p) { status_path_ = p; }
 
     // CefLoadHandler
     void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoading,
@@ -53,6 +63,7 @@ private:
     std::atomic<int> height_;
     CefRefPtr<CefBrowser> browser_;
     uint64_t frame_count_ = 0;
+    std::string status_path_;
 
     IMPLEMENT_REFCOUNTING(WvClient);
 };

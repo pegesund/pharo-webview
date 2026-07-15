@@ -83,6 +83,19 @@ void WvClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoadin
     }
 }
 
+void WvClient::OnAddressChange(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                               const CefString& url) {
+    // Only the main frame's address; write it to the status file (best-effort)
+    // so the Pharo address bar can reflect redirects and clicked links.
+    if (status_path_.empty() || (frame && !frame->IsMain())) return;
+    if (FILE* f = std::fopen((status_path_ + ".tmp").c_str(), "w")) {
+        std::string u = url.ToString();
+        std::fwrite(u.data(), 1, u.size(), f);
+        std::fclose(f);
+        std::rename((status_path_ + ".tmp").c_str(), status_path_.c_str());
+    }
+}
+
 
 void WvClient::resize(int width, int height) {
     width_.store(width);

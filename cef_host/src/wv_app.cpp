@@ -40,6 +40,9 @@ void WvApp::OnContextInitialized() {
     CEF_REQUIRE_UI_THREAD();
 
     client_ = new WvClient(shm_, width_, height_);
+    if (!control_path_.empty()) {
+        client_->setStatusPath(control_path_ + ".status");
+    }
 
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);  // no parent -> offscreen rendering

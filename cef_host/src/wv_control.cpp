@@ -37,6 +37,8 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
     m.y = intOf(d, "y");
     m.modifiers = 0;
 
+    CefRefPtr<CefBrowser> browser = client->browser();
+
     if (type == "move") {
         host->SendMouseMoveEvent(m, false);
     } else if (type == "click") {
@@ -44,6 +46,17 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
         host->SendMouseClickEvent(m, MBT_LEFT, true, 1);   // up
     } else if (type == "scroll") {
         host->SendMouseWheelEvent(m, intOf(d, "dx"), intOf(d, "dy"));
+    } else if (type == "navigate") {
+        std::string url = d->HasKey("url") ? d->GetString("url").ToString() : "";
+        if (!url.empty()) browser->GetMainFrame()->LoadURL(url);
+    } else if (type == "back") {
+        if (browser->CanGoBack()) browser->GoBack();
+    } else if (type == "forward") {
+        if (browser->CanGoForward()) browser->GoForward();
+    } else if (type == "reload") {
+        browser->Reload();
+    } else if (type == "stop") {
+        browser->StopLoad();
     } else if (type == "key") {
         std::string text = d->HasKey("text") ? d->GetString("text").ToString() : "";
         if (!text.empty()) {
