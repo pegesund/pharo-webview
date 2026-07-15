@@ -1,0 +1,474 @@
+THERE_BE_DRAGONS_HERE
+Address already in use
+15 July 2026 2:00:39.296994 am
+
+VM: Mac OS - arm64 - 1000 - CoInterpreter VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+StackToRegisterMappingCogit VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+v12.0.3-beta+0.2aa4b7c14 - Commit: 2aa4b7c14 - Date: 2026-06-03 15:53:56 +0200
+
+Image: Pharo-14.0.0+SNAPSHOT.build.733.sha.3bbdb5b622cd039d40b994796d33489350cfc18d (64 Bit)
+
+Socket>>primSocket:bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[104 220 92 106 0 0 0 0 32 219 36 30 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	#[104 220 92 106 0 0 0 0 32 219 36 30 1 0 0 0]
+		temp2: 	0.0.0.0
+		temp3: 	8086
+
+Socket>>bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[104 220 92 106 0 0 0 0 32 219 36 30 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	0.0.0.0
+		temp2: 	8086
+
+Socket>>bindToPort:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[104 220 92 106 0 0 0 0 32 219 36 30 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+Socket>>listenOn:backlogSize:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[104 220 92 106 0 0 0 0 32 219 36 30 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	32
+
+ZnNetworkingUtils>>serverSocketOn:
+	Receiver: a ZnNetworkingUtils
+	Receiver's instance variables: 
+		socketStreamClass: 	SocketStream
+		secureSocketStreamClass: 	ZdcSecureSocketStream
+		sslSessionClass: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	a Socket[unconnected]
+
+ZnNetworkingUtils class>>serverSocketOn:
+	Receiver: ZnNetworkingUtils
+	Receiver's instance variables: 
+		superclass: 	Object
+		methodDict: 	a MethodDictionary(#bufferSize->ZnNetworkingUtils>>#bufferSize [..]
+		format: 	65539
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (accessing) - 6 selector(s) Protocol (proxy) -[..]
+		subclasses: 	nil
+		name: 	#ZnNetworkingUtils
+		classPool: 	a Dictionary(#Default->a ZnNetworkingUtils #DefaultSocketStreamT[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	91271576
+		packageTag: 	a PackageTag(Support)
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+	Receiver: [ ] in ZnSingleThreadedServer>>#start
+	Receiver's instance variables: 
+		outerContext: 	ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+		compiledBlock: 	a CompiledBlock: [ [ self listenLoop ] repeat ]
+		numArgs: 	0
+		receiver: 	a ZnManagingMultiThreadedServer(stopped 8086)
+
+	Arguments and temporary variables: 
+x
+
+
+--- The full stack ---
+Socket>>primSocket:bindTo:port:
+Socket>>bindTo:port:
+Socket>>bindToPort:
+Socket>>listenOn:backlogSize:
+ZnNetworkingUtils>>serverSocketOn:
+ZnNetworkingUtils class>>serverSocketOn:
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+-------------------------------------------------------------------------------
+
+THERE_BE_DRAGONS_HERE
+Address already in use
+15 July 2026 2:02:49.410907 am
+
+VM: Mac OS - arm64 - 1000 - CoInterpreter VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+StackToRegisterMappingCogit VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+v12.0.3-beta+0.2aa4b7c14 - Commit: 2aa4b7c14 - Date: 2026-06-03 15:53:56 +0200
+
+Image: Pharo-14.0.0+SNAPSHOT.build.733.sha.3bbdb5b622cd039d40b994796d33489350cfc18d (64 Bit)
+
+Socket>>primSocket:bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[96 83 93 106 0 0 0 0 48 225 146 59 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	#[96 83 93 106 0 0 0 0 48 225 146 59 1 0 0 0]
+		temp2: 	0.0.0.0
+		temp3: 	8086
+
+Socket>>bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[96 83 93 106 0 0 0 0 48 225 146 59 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	0.0.0.0
+		temp2: 	8086
+
+Socket>>bindToPort:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[96 83 93 106 0 0 0 0 48 225 146 59 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+Socket>>listenOn:backlogSize:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[96 83 93 106 0 0 0 0 48 225 146 59 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	32
+
+ZnNetworkingUtils>>serverSocketOn:
+	Receiver: a ZnNetworkingUtils
+	Receiver's instance variables: 
+		socketStreamClass: 	SocketStream
+		secureSocketStreamClass: 	ZdcSecureSocketStream
+		sslSessionClass: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	a Socket[unconnected]
+
+ZnNetworkingUtils class>>serverSocketOn:
+	Receiver: ZnNetworkingUtils
+	Receiver's instance variables: 
+		superclass: 	Object
+		methodDict: 	a MethodDictionary(#bufferSize->ZnNetworkingUtils>>#bufferSize [..]
+		format: 	65539
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (accessing) - 6 selector(s) Protocol (proxy) -[..]
+		subclasses: 	nil
+		name: 	#ZnNetworkingUtils
+		classPool: 	a Dictionary(#Default->a ZnNetworkingUtils #DefaultSocketStreamT[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	91271576
+		packageTag: 	a PackageTag(Support)
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+	Receiver: [ ] in ZnSingleThreadedServer>>#start
+	Receiver's instance variables: 
+		outerContext: 	ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+		compiledBlock: 	a CompiledBlock: [ [ self listenLoop ] repeat ]
+		numArgs: 	0
+		receiver: 	a ZnManagingMultiThreadedServer(stopped 8086)
+
+	Arguments and temporary variables: 
+x
+
+
+--- The full stack ---
+Socket>>primSocket:bindTo:port:
+Socket>>bindTo:port:
+Socket>>bindToPort:
+Socket>>listenOn:backlogSize:
+ZnNetworkingUtils>>serverSocketOn:
+ZnNetworkingUtils class>>serverSocketOn:
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+-------------------------------------------------------------------------------
+
+THERE_BE_DRAGONS_HERE
+Address already in use
+15 July 2026 2:04:59.190189 am
+
+VM: Mac OS - arm64 - 1000 - CoInterpreter VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+StackToRegisterMappingCogit VMMaker-tonel.1 uuid: a9ee0ad1-bb0f-0e00-80b7-2715070eaa56 Jun  3 2026
+v12.0.3-beta+0.2aa4b7c14 - Commit: 2aa4b7c14 - Date: 2026-06-03 15:53:56 +0200
+
+Image: Pharo-14.0.0+SNAPSHOT.build.733.sha.3bbdb5b622cd039d40b994796d33489350cfc18d (64 Bit)
+
+Socket>>primSocket:bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[50 21 93 106 0 0 0 0 0 70 160 47 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	#[50 21 93 106 0 0 0 0 0 70 160 47 1 0 0 0]
+		temp2: 	0.0.0.0
+		temp3: 	8086
+
+Socket>>bindTo:port:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[50 21 93 106 0 0 0 0 0 70 160 47 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	0.0.0.0
+		temp2: 	8086
+
+Socket>>bindToPort:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[50 21 93 106 0 0 0 0 0 70 160 47 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+Socket>>listenOn:backlogSize:
+	Receiver: a Socket[unconnected]
+	Receiver's instance variables: 
+		semaphore: 	a Semaphore()
+		socketHandle: 	#[50 21 93 106 0 0 0 0 0 70 160 47 1 0 0 0]
+		readSemaphore: 	a Semaphore()
+		writeSemaphore: 	a Semaphore()
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	32
+
+ZnNetworkingUtils>>serverSocketOn:
+	Receiver: a ZnNetworkingUtils
+	Receiver's instance variables: 
+		socketStreamClass: 	SocketStream
+		secureSocketStreamClass: 	ZdcSecureSocketStream
+		sslSessionClass: 	nil
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+		temp2: 	a Socket[unconnected]
+
+ZnNetworkingUtils class>>serverSocketOn:
+	Receiver: ZnNetworkingUtils
+	Receiver's instance variables: 
+		superclass: 	Object
+		methodDict: 	a MethodDictionary(#bufferSize->ZnNetworkingUtils>>#bufferSize [..]
+		format: 	65539
+		layout: 	a FixedLayout
+		protocols: 	an Array(Protocol (accessing) - 6 selector(s) Protocol (proxy) -[..]
+		subclasses: 	nil
+		name: 	#ZnNetworkingUtils
+		classPool: 	a Dictionary(#Default->a ZnNetworkingUtils #DefaultSocketStreamT[..]
+		sharedPools: 	nil
+		environment: 	a SystemEnvironment(lots of globals)
+		commentSourcePointer: 	91271576
+		packageTag: 	a PackageTag(Support)
+
+	Arguments and temporary variables: 
+		temp1: 	8086
+
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+	Receiver: a ZnManagingMultiThreadedServer(stopped 8086)
+	Receiver's instance variables: 
+		options: 	a Dictionary(#defaultOutput->#json #delegate->a TeaCompositeRouter[..]
+		sessionManager: 	nil
+		newOptions: 	nil
+		process: 	nil
+		serverSocket: 	nil
+		logLevel: 	3
+		lock: 	nil
+		connections: 	an OrderedCollection()
+
+	Arguments and temporary variables: 
+x
+
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+	Receiver: [ ] in ZnSingleThreadedServer>>#start
+	Receiver's instance variables: 
+		outerContext: 	ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+		compiledBlock: 	a CompiledBlock: [ [ self listenLoop ] repeat ]
+		numArgs: 	0
+		receiver: 	a ZnManagingMultiThreadedServer(stopped 8086)
+
+	Arguments and temporary variables: 
+x
+
+
+--- The full stack ---
+Socket>>primSocket:bindTo:port:
+Socket>>bindTo:port:
+Socket>>bindToPort:
+Socket>>listenOn:backlogSize:
+ZnNetworkingUtils>>serverSocketOn:
+ZnNetworkingUtils class>>serverSocketOn:
+ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>initializeServerSocket
+ZnManagingMultiThreadedServer(ZnMultiThreadedServer)>>listenLoop
+[ ] in ZnManagingMultiThreadedServer(ZnSingleThreadedServer)>>start
+[ ] in FullBlockClosure(BlockClosure)>>newProcess
+-------------------------------------------------------------------------------
+
