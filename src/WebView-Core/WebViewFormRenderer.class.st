@@ -3,10 +3,13 @@ Class {
 	#superclass : 'OSSDL2FormRenderer',
 	#instVars : [
 		'overlayTexture',
-		'overlayForm',
+		'overlayTextureExtent',
+		'overlayPixels',
+		'overlayPixelExtent',
+		'overlayPitch',
 		'overlayBounds',
-		'overlayExtent',
 		'overlayDirty',
+		'overlayDirtyRects',
 		'overlayCopyCount'
 	],
 	#category : 'WebView-Core',
@@ -82,9 +85,11 @@ WebViewFormRenderer >> clearOverlay [
 	mutex critical: [
 		overlayTexture ifNotNil: [ overlayTexture destroy ].
 		overlayTexture := nil.
-		overlayForm := nil.
+		overlayTextureExtent := nil.
+		overlayPixels := nil.
+		overlayPixelExtent := nil.
 		overlayBounds := nil.
-		overlayExtent := nil.
+		overlayDirtyRects := nil.
 		overlayDirty := false ]
 ]
 
@@ -101,15 +106,14 @@ WebViewFormRenderer >> copyAndPresentTextureRectangle: rectangle [
 { #category : 'overlay' }
 WebViewFormRenderer >> copyOverlay [
 	"Assumes mutex is held. Interleave the overlay texture after the world texture copy,
-	before present. Errors here must NEVER escape: an exception inside the caller mutex
-	critical: block poisons the mutex (Pharo issue 10156) and freezes the UI.
-	On any error: kill-switch the overlay and log."
+	before present. Errors must NEVER escape (mutex poisoning, Pharo issue 10156):
+	on any error the overlay is kill-switched and the error logged."
 	overlayBounds ifNil: [ ^ self ].
 	[
 	self validateOverlay ifTrue: [
 		renderer
 			copy: overlayTexture
-			srcRect: (0 @ 0 extent: overlayExtent) asSDLRect
+			srcRect: (0 @ 0 extent: overlayTextureExtent) asSDLRect
 			dstRect: overlayBounds asSDLRect.
 		overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
 		on: Error
@@ -140,11 +144,20 @@ WebViewFormRenderer >> overlayCopyCount [
 
 { #category : 'overlay' }
 WebViewFormRenderer >> overlayForm: aForm bounds: aRectangle [
-	"Called from the UI process (morph step). Store the overlay source buffer and its
-	destination rectangle (texture coordinates); upload happens at present time under the mutex."
+	self overlayPixels: aForm bits extent: aForm extent pitch: aForm width * 4 bounds: aRectangle dirtyRects: nil
+]
+
+{ #category : 'overlay' }
+WebViewFormRenderer >> overlayPixels: pixelsSource extent: aPoint pitch: pitchInt bounds: aRectangle dirtyRects: aCollectionOrNil [
+	"Set the overlay source. pixelsSource: an ExternalAddress (engine buffer) or a Bitmap
+	(Form bits). bounds is the destination rect in texture coordinates. dirtyRects (source
+	coordinates) enable per-rect upload; nil means full upload. Called from the UI process."
 	mutex critical: [
-		overlayForm := aForm.
+		overlayPixels := pixelsSource.
+		overlayPixelExtent := aPoint.
+		overlayPitch := pitchInt.
 		overlayBounds := aRectangle.
+		overlayDirtyRects := aCollectionOrNil.
 		overlayDirty := true ]
 ]
 
@@ -169,19 +182,30 @@ WebViewFormRenderer >> useDeferredUpdates [
 
 { #category : 'overlay' }
 WebViewFormRenderer >> validateOverlay [
-	"Assumes mutex is held and renderer is valid. Creates/uploads the overlay texture as needed."
-	overlayForm ifNil: [ ^ false ].
-	(overlayTexture isNil or: [ overlayTexture isNull or: [ overlayExtent ~= overlayForm extent ] ]) ifTrue: [
+	"Assumes mutex is held and renderer is valid. (Re)creates the overlay texture and
+	uploads pending pixels - per dirty rect when possible, else the full buffer."
+	overlayPixels ifNil: [ ^ false ].
+	(overlayTexture isNil or: [ overlayTexture isNull or: [ overlayTextureExtent ~= overlayPixelExtent ] ]) ifTrue: [
 		overlayTexture ifNotNil: [ overlayTexture destroy ].
 		overlayTexture := renderer
 			createTextureFormat: SDL_PIXELFORMAT_XRGB8888
 			access: SDL_TEXTUREACCESS_STREAMING
-			width: overlayForm width
-			height: overlayForm height.
-		overlayExtent := overlayForm extent.
+			width: overlayPixelExtent x
+			height: overlayPixelExtent y.
+		overlayTextureExtent := overlayPixelExtent.
+		overlayDirtyRects := nil.
 		overlayDirty := true ].
 	overlayDirty ifTrue: [
-		overlayTexture updateTexturePixels: overlayForm bits pitch: overlayForm width * 4.
-		overlayDirty := false ].
+		(overlayDirtyRects isNil or: [ overlayDirtyRects isEmpty or: [ (overlayPixels isKindOf: ExternalAddress) not ] ])
+			ifTrue: [ overlayTexture updateTexturePixels: overlayPixels pitch: overlayPitch ]
+			ifFalse: [
+				overlayDirtyRects do: [ :r |
+					| clipped ptr |
+					clipped := r intersect: (0 @ 0 extent: overlayPixelExtent) ifNone: [ nil ].
+					clipped ifNotNil: [
+						ptr := overlayPixels + (clipped origin y * overlayPitch) + (clipped origin x * 4).
+						overlayTexture updateTextureRect: clipped asSDLRect pixels: ptr pitch: overlayPitch ] ] ].
+		overlayDirty := false.
+		overlayDirtyRects := nil ].
 	^ true
 ]

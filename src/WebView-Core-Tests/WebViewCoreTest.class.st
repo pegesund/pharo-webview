@@ -6,6 +6,13 @@ Class {
 }
 
 { #category : 'tests' }
+WebViewCoreTest >> testFormRendererDirtyRectUpload [
+	self assert: (WebViewFormRenderer includesSelector: #overlayPixels:extent:pitch:bounds:dirtyRects:).
+	self assert: (WebViewFormRenderer includesSelector: #validateOverlay).
+	self assert: (WebViewMorph includesSelector: #pushFrame)
+]
+
+{ #category : 'tests' }
 WebViewCoreTest >> testFormRendererOverridesAllPresentSites [
 	#(copyAndPresentTextureRectangle: updateAll useDeferredUpdates copyOverlay validateOverlay clearOverlay overlayForm:bounds: destroy)
 		do: [ :sel | self assert: (WebViewFormRenderer includesSelector: sel) description: sel asString ]
@@ -25,6 +32,30 @@ WebViewCoreTest >> testPatternMorphRendersWithoutWorld [
 WebViewCoreTest >> testPlanM0IsDone [
 	self assert: (WebViewProjectPlan status at: #M0) equals: #done.
 	self assert: (WebViewProjectPlan reportAt: #M0) isNotNil
+]
+
+{ #category : 'tests' }
+WebViewCoreTest >> testShimRoundTrip [
+	| s |
+	s := WvShim new.
+	s openExtent: 64 @ 48.
+	self assert: s isOpen.
+	(Delay forMilliseconds: 120) wait.
+	s tick.
+	self assert: s frameReady.
+	self assert: s frameWidth equals: 64.
+	self assert: s frameHeight equals: 48.
+	self assert: s frameBuffer isNil not.
+	self assert: s dirtyRects isEmpty not.
+	s frameAck.
+	self deny: s frameReady.
+	s destroy.
+	self deny: s isOpen
+]
+
+{ #category : 'tests' }
+WebViewCoreTest >> testShimVersion [
+	self assert: WvShim version equals: 1
 ]
 
 { #category : 'tests' }
