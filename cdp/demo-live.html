@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WebView live demo</title>
+<style>
+  html,body{margin:0;height:100%;font-family:-apple-system,Helvetica,Arial,sans-serif;
+    background:linear-gradient(135deg,#0b1e3a,#123a5e);color:#eaf2ff;overflow:hidden}
+  .wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  h1{font-size:34px;margin:0 0 8px}
+  #clock{font-size:64px;font-variant-numeric:tabular-nums;letter-spacing:2px}
+  #box{width:80px;height:80px;border-radius:16px;background:#ffb020;margin-top:28px;
+    box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  p{opacity:.8}
+  button{font-size:18px;padding:10px 18px;border:0;border-radius:10px;background:#3b82f6;color:#fff;cursor:pointer}
+  #count{font-size:22px;margin-top:10px}
+</style>
+<div class="wrap">
+  <h1>Live browser in a Pharo morph</h1>
+  <div id="clock">--:--:--</div>
+  <div id="box"></div>
+  <button id="btn">Clicked <span id="count">0</span> times</button>
+  <p>Chrome (headless) → CDP screencast → SDL texture → Morphic</p>
+</div>
+<script>
+  const clock = document.getElementById('clock');
+  const box = document.getElementById('box');
+  const btn = document.getElementById('btn');
+  const count = document.getElementById('count');
+  let n = 0;
+  btn.onclick = () => { n++; count.textContent = n; };
+  function frame(t){
+    const d = new Date();
+    clock.textContent = d.toLocaleTimeString('en-GB');
+    const x = Math.sin(t/500) * 120;
+    box.style.transform = `translateX(${x}px)`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

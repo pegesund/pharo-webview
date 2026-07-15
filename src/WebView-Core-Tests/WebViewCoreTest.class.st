@@ -6,6 +6,15 @@ Class {
 }
 
 { #category : 'tests' }
+WebViewCoreTest >> testCdpMorphWiring [
+	self assert: (WebViewCdpMorph includesSelector: #step).
+	self assert: (WebViewCdpMorph includesSelector: #loadCurrentFrame).
+	self assert: (WebViewCdpMorph includesSelector: #pushForm:).
+	"decode path is available"
+	self assert: (Smalltalk includesKey: #ImageReadWriter)
+]
+
+{ #category : 'tests' }
 WebViewCoreTest >> testFormRendererDirtyRectUpload [
 	self assert: (WebViewFormRenderer includesSelector: #overlayPixels:extent:pitch:bounds:dirtyRects:).
 	self assert: (WebViewFormRenderer includesSelector: #validateOverlay).
