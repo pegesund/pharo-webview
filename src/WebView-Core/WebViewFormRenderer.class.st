@@ -201,15 +201,15 @@ WebViewFormRenderer >> useDeferredUpdates [
 
 { #category : 'overlay' }
 WebViewFormRenderer >> validateEntry: entry [
-	"Assumes mutex held and renderer valid. (Re)creates + uploads this entry texture.
-	Answers true if the entry has a usable texture."
-	| pixels pxExtent tex texExtent |
+	"Assumes mutex held and renderer valid. (Re)creates + uploads this entry texture,
+	using per-dirty-rect upload when dirty rects are supplied and the source is an
+	ExternalAddress; otherwise a full upload."
+	| pixels pxExtent tex |
 	pixels := entry at: #pixels ifAbsent: [ nil ].
 	pixels ifNil: [ ^ false ].
 	pxExtent := entry at: #pixelExtent.
 	tex := entry at: #texture ifAbsent: [ nil ].
-	texExtent := entry at: #textureExtent ifAbsent: [ nil ].
-	(tex isNil or: [ tex isNull or: [ texExtent ~= pxExtent ] ]) ifTrue: [
+	(tex isNil or: [ tex isNull or: [ (entry at: #textureExtent ifAbsent: [ nil ]) ~= pxExtent ] ]) ifTrue: [
 		tex ifNotNil: [ tex destroy ].
 		tex := renderer
 			createTextureFormat: SDL_PIXELFORMAT_XRGB8888
@@ -220,7 +220,17 @@ WebViewFormRenderer >> validateEntry: entry [
 		entry at: #dirty put: true.
 		entry at: #dirtyRects put: nil ].
 	(entry at: #dirty) ifTrue: [
-		tex updateTexturePixels: pixels pitch: (entry at: #pitch).
+		| dr pitch |
+		dr := entry at: #dirtyRects ifAbsent: [ nil ].
+		pitch := entry at: #pitch.
+		(dr isNil or: [ dr isEmpty or: [ (pixels isKindOf: ExternalAddress) not ] ])
+			ifTrue: [ tex updateTexturePixels: pixels pitch: pitch ]
+			ifFalse: [
+				dr do: [ :rct | | clipped ptr |
+					clipped := rct intersect: (0 @ 0 extent: pxExtent) ifNone: [ nil ].
+					clipped ifNotNil: [
+						ptr := pixels + (clipped origin y * pitch) + (clipped origin x * 4).
+						tex updateTextureRect: clipped asSDLRect pixels: ptr pitch: pitch ] ] ].
 		entry at: #dirty put: false ].
 	^ true
 ]

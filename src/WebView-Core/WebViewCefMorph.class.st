@@ -232,6 +232,21 @@ WebViewCefMorph >> pushFrame [
 		dirtyRects: nil
 ]
 
+{ #category : 'frames' }
+WebViewCefMorph >> pushFrameDirty: useDirty [
+	| r scale rects |
+	r := self formRendererOrNil ifNil: [ ^ self ].
+	scale := OSWorldRenderer canvasScaleFactor.
+	rects := useDirty ifTrue: [ shm dirtyRects ] ifFalse: [ nil ].
+	r
+		overlayFor: self
+		pixels: shm pixelsAddress
+		extent: shm width @ shm height
+		pitch: shm width * 4
+		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)
+		dirtyRects: rects
+]
+
 { #category : 'geometry' }
 WebViewCefMorph >> sendResize [
 	| scale w h |
@@ -257,18 +272,18 @@ WebViewCefMorph >> statusPath [ ^ inputPath, '.status'
 
 { #category : 'stepping' }
 WebViewCefMorph >> step [
-	"Poll the shm; push new frames. A hidden webview (inactive tab) stops
-	compositing and drops its overlay, but its host keeps running (background tab)."
-	[
+	[ | seq noSkip |
 	self visible ifFalse: [
 		self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
 		^ self ].
 	self ensureShm ifFalse: [ ^ self ].
 	shm alive ifFalse: [ ^ self ].
 	self maybeResize.
-	shm seq = lastSeq ifTrue: [ ^ self ].
-	lastSeq := shm seq.
-	self pushFrame.
+	seq := shm seq.
+	seq = lastSeq ifTrue: [ ^ self ].
+	noSkip := seq = (lastSeq + 1).
+	lastSeq := seq.
+	self pushFrameDirty: noSkip.
 	self changed ]
 		on: Error
 		do: [ :e | self stopStepping. WebViewProjectPlan log: 'CefMorph step ERROR: ', e printString ]

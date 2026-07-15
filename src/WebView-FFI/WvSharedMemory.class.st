@@ -40,6 +40,24 @@ WvSharedMemory >> close [
 	fd ifNotNil: [ self primClose: fd ]. fd := nil
 ]
 
+{ #category : 'header' }
+WvSharedMemory >> dirtyRects [
+	"Read up to num_dirty dirty rects (x,y,w,h int32 quads starting at byte 24)
+	as Rectangles. Caller must decide whether they are safe to use (no skipped seq)."
+	| n rects |
+	self isValid ifFalse: [ ^ #() ].
+	n := self numDirty min: 16.
+	rects := OrderedCollection new.
+	1 to: n do: [ :i | | base x y w h |
+		base := 24 + ((i - 1) * 16).
+		x := address signedLongAt: base + 1.
+		y := address signedLongAt: base + 5.
+		w := address signedLongAt: base + 9.
+		h := address signedLongAt: base + 13.
+		(w > 0 and: [ h > 0 ]) ifTrue: [ rects add: (x @ y extent: w @ h) ] ].
+	^ rects
+]
+
 { #category : 'ffi' }
 WvSharedMemory >> ffiLibraryName [
 	^ 'libc.dylib'
