@@ -109,6 +109,10 @@ WebViewCefMorph >> handlesMouseDown: anEvent [ ^ true
 WebViewCefMorph >> handlesMouseMove: anEvent [ ^ true
 ]
 
+{ #category : 'event handling' }
+WebViewCefMorph >> handlesMouseWheel: anEvent [ ^ true
+]
+
 { #category : 'visibility' }
 WebViewCefMorph >> hide [
 	self visible: false.
@@ -234,6 +238,21 @@ WebViewCefMorph >> mouseMove: anEvent [
 	anEvent anyButtonPressed ifFalse: [ ^ self ].
 	p := self toBrowserCoords: anEvent position.
 	self writeCommand: { 'type' -> 'move'. 'x' -> p x. 'y' -> p y } asDictionary
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> mouseWheel: anEvent [
+	"Route wheel scrolling to CEF as a mouse-wheel event at the cursor position."
+	| p dx dy step |
+	p := self toBrowserCoords: anEvent position.
+	step := 60.
+	dx := 0. dy := 0.
+	anEvent isUp ifTrue: [ dy := step ].
+	anEvent isDown ifTrue: [ dy := step negated ].
+	anEvent isLeft ifTrue: [ dx := step ].
+	anEvent isRight ifTrue: [ dx := step negated ].
+	(dx = 0 and: [ dy = 0 ]) ifTrue: [ ^ self ].
+	self writeCommand: { 'type' -> 'scroll'. 'x' -> p x. 'y' -> p y. 'dx' -> dx. 'dy' -> dy } asDictionary
 ]
 
 { #category : 'frames' }
