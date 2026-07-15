@@ -75,10 +75,13 @@ WebViewCefMorph >> dispatchEventLine: aString [
 	(evt isNil or: [ (evt isKindOf: Dictionary) not ]) ifTrue: [ ^ self ].
 	name := evt at: 'event' ifAbsent: [ nil ].
 	name ifNil: [ ^ self ].
-	self fireCallbacks: name asSymbol with: evt.
-	name = 'js' ifTrue: [
-		(evt at: 'name' ifAbsent: [ nil ]) ifNotNil: [ :jn |
-			self fireCallbacks: ('js:', jn) asSymbol with: evt ] ]
+	name = 'js' ifTrue: [ | jn |
+		jn := evt at: 'name' ifAbsent: [ nil ].
+		jn = '__eval' ifTrue: [ ^ self handleEvalResult: (evt at: 'data' ifAbsent: [ nil ]) ].
+		self fireCallbacks: #js with: evt.
+		jn ifNotNil: [ self fireCallbacks: ('js:', jn) asSymbol with: evt ].
+		^ self ].
+	self fireCallbacks: name asSymbol with: evt
 ]
 
 { #category : 'drawing' }
@@ -96,6 +99,30 @@ WebViewCefMorph >> ensureShm [
 	shmPath asFileReference exists ifFalse: [ ^ false ].
 	shm := WvSharedMemory openPath: shmPath.
 	^ shm notNil and: [ shm isValid ]
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> evalJs: jsString [
+	"Run arbitrary JavaScript in the page (DOM manipulation, fire-and-forget)."
+	self writeCommand: { 'type' -> 'eval'. 'js' -> jsString } asDictionary
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> evalJs: jsString then: aBlock [
+	"Run a JS EXPRESSION and deliver its (JSON-able) value to aBlock on the UI
+	process. For multiple statements, pass a function expression, e.g.
+	'(function(){ ...; return x })()'. On a JS exception the error is logged."
+	| reqId wrapped cbs |
+	reqId := self nextEvalId.
+	cbs := self valueOfProperty: #wvEvalCallbacks ifAbsent: [ nil ].
+	cbs ifNil: [ cbs := Dictionary new. self setProperty: #wvEvalCallbacks toValue: cbs ].
+	cbs at: reqId put: aBlock.
+	wrapped := String streamContents: [ :s |
+		s nextPutAll: '(function(){try{var r=('; nextPutAll: jsString; nextPut: Character lf; nextPutAll: ');'.
+		s nextPutAll: 'window.pharo.emit("__eval",{id:'; nextPutAll: reqId printString; nextPutAll: ',ok:true,value:r});'.
+		s nextPutAll: '}catch(e){window.pharo.emit("__eval",{id:'; nextPutAll: reqId printString.
+		s nextPutAll: ',ok:false,error:String((e&&e.message)||e)});}})();' ].
+	self evalJs: wrapped
 ]
 
 { #category : 'events' }
@@ -126,6 +153,21 @@ WebViewCefMorph >> formRendererOrNil [
 	w := self world ifNil: [ ^ nil ].
 	r := w worldState worldRenderer osWindowRenderer.
 	^ (r isKindOf: WebViewFormRenderer) ifTrue: [ r ] ifFalse: [ nil ]
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> handleEvalResult: data [
+	| id blk cbs |
+	(data isKindOf: Dictionary) ifFalse: [ ^ self ].
+	id := data at: 'id' ifAbsent: [ nil ].
+	cbs := self valueOfProperty: #wvEvalCallbacks ifAbsent: [ nil ].
+	(cbs isNil or: [ id isNil ]) ifTrue: [ ^ self ].
+	blk := cbs removeKey: id ifAbsent: [ nil ].
+	blk ifNil: [ ^ self ].
+	(data at: 'ok' ifAbsent: [ false ])
+		ifTrue: [ [ blk cull: (data at: 'value' ifAbsent: [ nil ]) ]
+			on: Error do: [ :e | WebViewProjectPlan log: 'evalJs then-block error: ', e printString ] ]
+		ifFalse: [ WebViewProjectPlan log: 'evalJs JS error: ', (data at: 'error' ifAbsent: [ '?' ]) printString ]
 ]
 
 { #category : 'event handling' }
@@ -180,6 +222,25 @@ WebViewCefMorph >> intoWorld: aWorld [
 	self launchHost.
 	self comeToFront.
 	self startStepping
+]
+
+{ #category : 'private' }
+WebViewCefMorph >> jsonStringOn: aStream put: aString [
+	"Write aString as a properly-escaped JSON string literal (with quotes)."
+	aStream nextPut: $".
+	aString do: [ :c | | code |
+		code := c asInteger.
+		code = 34 ifTrue: [ aStream nextPutAll: '\"' ] ifFalse: [
+		code = 92 ifTrue: [ aStream nextPutAll: '\\' ] ifFalse: [
+		code = 10 ifTrue: [ aStream nextPutAll: '\n' ] ifFalse: [
+		code = 13 ifTrue: [ aStream nextPutAll: '\r' ] ifFalse: [
+		code = 9 ifTrue: [ aStream nextPutAll: '\t' ] ifFalse: [
+		code = 8 ifTrue: [ aStream nextPutAll: '\b' ] ifFalse: [
+		code = 12 ifTrue: [ aStream nextPutAll: '\f' ] ifFalse: [
+		code < 32 ifTrue: [ | hex | hex := code printString: 16.
+			aStream nextPutAll: '\u00'. hex size < 2 ifTrue: [ aStream nextPut: $0 ]. aStream nextPutAll: hex ]
+		ifFalse: [ aStream nextPut: c ] ] ] ] ] ] ] ] ].
+	aStream nextPut: $"
 ]
 
 { #category : 'event handling' }
@@ -305,6 +366,14 @@ WebViewCefMorph >> mouseWheel: anEvent [
 		(dx = 0 and: [ dy = 0 ]) ifFalse: [
 			self writeCommand: { 'type' -> 'scroll'. 'x' -> p x. 'y' -> p y. 'dx' -> dx. 'dy' -> dy } asDictionary ] ]
 		label: 'mouseWheel'
+]
+
+{ #category : 'scripting' }
+WebViewCefMorph >> nextEvalId [
+	| n |
+	n := (self valueOfProperty: #wvEvalCounter ifAbsent: [ 0 ]) + 1.
+	self setProperty: #wvEvalCounter toValue: n.
+	^ n
 ]
 
 { #category : 'events' }
@@ -478,18 +547,23 @@ WebViewCefMorph >> withErrorLog: aBlock label: aString [
 		nil ]
 ]
 
-{ #category : 'input' }
+{ #category : 'private' }
 WebViewCefMorph >> writeCommand: aDictionary [
-	"Append one JSON command line to the CEF host input channel."
+	"Append one JSON command line to the CEF host input channel (properly escaped)."
 	[ | line stream |
 	line := String streamContents: [ :s |
 		s nextPut: ${.
 		aDictionary keysAndValuesDo: [ :k :v |
-			s nextPut: $"; nextPutAll: k; nextPutAll: '":'.
-			v isNumber ifTrue: [ s nextPutAll: v printString ] ifFalse: [ s nextPut: $"; nextPutAll: v asString; nextPut: $" ].
-			s nextPutAll: ',' ].
+			self jsonStringOn: s put: k asString.
+			s nextPut: $:.
+			v isNumber
+				ifTrue: [ s nextPutAll: v printString ]
+				ifFalse: [ (v isKindOf: Boolean)
+					ifTrue: [ s nextPutAll: (v ifTrue: [ 'true' ] ifFalse: [ 'false' ]) ]
+					ifFalse: [ self jsonStringOn: s put: v asString ] ].
+			s nextPut: $, ].
 		s nextPutAll: '"_":0}' ].
 	stream := (File named: inputPath) openForAppend.
-	[ stream nextPutAll: line asByteArray; nextPut: Character lf asInteger ] ensure: [ stream close ] ]
+	[ stream nextPutAll: line utf8Encoded; nextPut: Character lf asInteger ] ensure: [ stream close ] ]
 		on: Error do: [ :e | WebViewProjectPlan log: 'CefMorph writeCommand error: ', e messageText ]
 ]

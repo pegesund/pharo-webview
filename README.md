@@ -85,6 +85,35 @@ different binary with the `WV_CEF_HOST` env var or `WebViewCefMorph binaryPath:`
   starts one only if the port is free.
 - Health check: `curl -m 8 -X POST localhost:8086/eval -H 'Content-Type: application/json' -d '{"code":"1+1"}'`.
 
+## Running JavaScript & manipulating the DOM from Pharo
+
+`WebViewCefMorph` can push JavaScript into the page (an `eval` command over the
+input channel → `CefFrame::ExecuteJavaScript` in the main frame):
+
+```smalltalk
+"fire-and-forget — mutate the DOM"
+webview evalJs: 'document.body.style.background = "#ffe000"'.
+webview evalJs: 'document.querySelector("h1").textContent = "Hei fra Pharo"'.
+
+"expression → value back in Pharo (via the window.pharo bridge, on the UI process)"
+webview evalJs: '2 + 40'                          then: [ :r | r "=> 42" ].
+webview evalJs: 'document.title'                  then: [ :r | r "=> a String" ].
+webview evalJs: 'JSON.parse(localStorage.foo||"{}")' then: [ :r | r "=> a Dictionary" ].
+
+"multiple statements: use a function expression that returns"
+webview
+  evalJs: '(function(){ document.body.insertAdjacentHTML("afterbegin","<h2>hi</h2>");
+                        return document.querySelectorAll("h2").length })()'
+  then: [ :n | n "=> the count" ].
+```
+
+`evalJs:then:` wraps the expression, ships its result through
+`window.pharo.emit('__eval', …)`, and delivers it to the block; JS numbers,
+strings, booleans, arrays and objects arrive as the matching Pharo objects
+(objects → `Dictionary`). A JS exception is caught and logged. Values must be
+JSON-able. Because commands are JSON-escaped, the JS may contain quotes, braces
+and newlines freely.
+
 ## Events & JS ↔ Pharo callbacks
 
 `cef_host` writes a reverse event channel (`<control>.events`, one JSON object per

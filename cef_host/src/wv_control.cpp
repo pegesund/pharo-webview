@@ -68,6 +68,14 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
     } else if (type == "navigate") {
         std::string url = d->HasKey("url") ? d->GetString("url").ToString() : "";
         if (!url.empty()) browser->GetMainFrame()->LoadURL(url);
+    } else if (type == "eval") {
+        // Run arbitrary JS in the main frame (DOM manipulation, and — when the
+        // JS calls window.pharo.emit — request/response back to Pharo).
+        std::string js = d->HasKey("js") ? d->GetString("js").ToString() : "";
+        if (!js.empty()) {
+            CefRefPtr<CefFrame> mf = browser->GetMainFrame();
+            mf->ExecuteJavaScript(js, mf->GetURL(), 0);
+        }
     } else if (type == "back") {
         if (browser->CanGoBack()) browser->GoBack();
     } else if (type == "forward") {
