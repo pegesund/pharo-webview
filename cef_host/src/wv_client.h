@@ -6,7 +6,6 @@
 #include "include/cef_render_handler.h"
 #include "include/cef_life_span_handler.h"
 #include "include/cef_load_handler.h"
-#include "include/cef_display_handler.h"
 #include "wv_shm.h"
 
 #include <atomic>
@@ -14,8 +13,7 @@
 class WvClient : public CefClient,
                  public CefRenderHandler,
                  public CefLifeSpanHandler,
-                 public CefLoadHandler,
-                 public CefDisplayHandler {
+                 public CefLoadHandler {
 public:
     WvClient(WvShm* shm, int width, int height);
 
@@ -23,12 +21,6 @@ public:
     CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
     CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
     CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
-    CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
-
-    // CefDisplayHandler
-    bool OnConsoleMessage(CefRefPtr<CefBrowser> browser, cef_log_severity_t level,
-                          const CefString& message, const CefString& source,
-                          int line) override;
 
     // CefLoadHandler
     void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoading,

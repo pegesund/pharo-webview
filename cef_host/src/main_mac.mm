@@ -37,12 +37,6 @@ static std::string bundlePath() {
 
 int main(int argc, char* argv[]) {
     @autoreleasepool {
-        {
-            std::string all;
-            for (int i = 0; i < argc; ++i) { all += argv[i]; all += " "; }
-            fprintf(stderr, "[wv_main] argc=%d argv: %.300s\n", argc, all.c_str());
-            fflush(stderr);
-        }
         // Load the CEF framework dynamically from the app bundle.
         CefScopedLibraryLoader library_loader;
         if (!library_loader.LoadInMain()) {
@@ -78,7 +72,7 @@ int main(int argc, char* argv[]) {
         CefRefPtr<WvApp> app(new WvApp(&shm, url, width, height, control_path));
 
         CefSettings settings;
-        settings.log_severity = LOGSEVERITY_VERBOSE;
+        settings.log_severity = LOGSEVERITY_WARNING;
         settings.windowless_rendering_enabled = true;
         settings.no_sandbox = true;
         settings.external_message_pump = false;

@@ -56,6 +56,7 @@ void WvApp::OnContextInitialized() {
     fprintf(stderr, "[wv_host] CreateBrowser returned %d\n", ok);
     fflush(stderr);
 
-    // (input control channel temporarily disabled while isolating a crash)
-    (void)control_path_;
+    if (!control_path_.empty()) {
+        WvControl::start(control_path_, client_);
+    }
 }
