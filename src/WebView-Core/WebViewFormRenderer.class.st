@@ -77,32 +77,27 @@ WebViewFormRenderer >> clearOverlay [
 		overlays := OrderedCollection new ]
 ]
 
-{ #category : 'updating screen' }
-WebViewFormRenderer >> copyAndPresentTextureRectangle: rectangle [
-	| sdlRectangle |
-	deferUpdates ifTrue: [ ^ self ].
-	sdlRectangle := rectangle asSDLRect.
-	renderer copy: texture srcRect: sdlRectangle dstRect: sdlRectangle.
-	self copyOverlay.
-	renderer present
+{ #category : 'compositing' }
+WebViewFormRenderer >> compositeAll [
+	"Assumes mutex held. World texture drawn first (opaque XRGB), then each browser
+	overlay ON TOP but clipped away from the device rects of morphs in front of it
+	in z-order — so a morph placed over the browser occludes it (real z-order)."
+	renderer copy: texture.
+	overlays ifNotNil: [
+		overlays do: [ :entry |
+			[ (self validateEntry: entry) ifTrue: [ self drawOverlayOccluded: entry ] ]
+				on: Error
+				do: [ :e | entry at: #pixels put: nil.
+					WebViewProjectPlan log: 'compositeAll entry ERROR: ', e printString ] ] ]
 ]
 
-{ #category : 'overlay' }
-WebViewFormRenderer >> copyOverlay [
-	"Assumes mutex held. Composite every overlay entry (in z-order) after the world
-	texture copy, before present. Per-entry errors kill-switch that entry only."
-	overlays ifNil: [ ^ self ].
-	overlays do: [ :entry |
-		[ (self validateEntry: entry) ifTrue: [
-			renderer
-				copy: (entry at: #texture)
-				srcRect: (0 @ 0 extent: (entry at: #textureExtent)) asSDLRect
-				dstRect: (entry at: #bounds) asSDLRect.
-			overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
-			on: Error
-			do: [ :e |
-				entry at: #pixels put: nil.
-				WebViewProjectPlan log: 'copyOverlay entry ERROR: ', e printString ] ]
+{ #category : 'updating screen' }
+WebViewFormRenderer >> copyAndPresentTextureRectangle: rectangle [
+	"Full recomposite each present: world texture, then occlusion-clipped browser
+	overlays. The dirty rectangle is ignored because overlays span it arbitrarily."
+	deferUpdates ifTrue: [ ^ self ].
+	self compositeAll.
+	renderer present
 ]
 
 { #category : 'deleting' }
@@ -111,6 +106,30 @@ WebViewFormRenderer >> destroy [
 		overlays ifNotNil: [ overlays do: [ :entry | (entry at: #texture ifAbsent: [nil]) ifNotNil: [:t | t destroy ] ] ].
 		overlays := OrderedCollection new ].
 	super destroy
+]
+
+{ #category : 'compositing' }
+WebViewFormRenderer >> drawOverlayOccluded: entry [
+	"Assumes mutex held + entry validated. Copy the browser texture to its device
+	bounds, minus the rectangles of any morphs in front of it (occlusion clipping)."
+	| tex texExtent bounds occluders visible sx sy |
+	tex := entry at: #texture.
+	texExtent := entry at: #textureExtent.
+	bounds := entry at: #bounds.
+	occluders := self occludersFor: (entry at: #key) target: bounds.
+	visible := OrderedCollection with: bounds.
+	occluders do: [ :occ | | next |
+		next := OrderedCollection new.
+		visible do: [ :v | next addAll: (v areasOutside: occ) ].
+		visible := next ].
+	sx := texExtent x / (bounds width max: 1).
+	sy := texExtent y / (bounds height max: 1).
+	visible do: [ :v |
+		v area > 0 ifTrue: [ | src |
+			src := (((v origin - bounds origin) * (sx @ sy)) rounded)
+				extent: ((v extent * (sx @ sy)) rounded).
+			renderer copy: tex srcRect: src asSDLRect dstRect: v asSDLRect.
+			overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
 ]
 
 { #category : 'overlay' }
@@ -130,6 +149,30 @@ WebViewFormRenderer >> initialize [
 	super initialize.
 	overlays := OrderedCollection new.
 	overlayCopyCount := 0
+]
+
+{ #category : 'compositing' }
+WebViewFormRenderer >> occludersFor: morph target: deviceBounds [
+	"Device rects of morphs in front of `morph` at any ancestor level whose device
+	bounds overlap deviceBounds. Device coords = world coords * canvasScaleFactor."
+	| result scale cur |
+	result := OrderedCollection new.
+	scale := OSWorldRenderer canvasScaleFactor.
+	cur := morph.
+	[ cur notNil and: [ cur owner notNil ] ] whileTrue: [
+		| owner sibs idx |
+		owner := cur owner.
+		sibs := owner submorphs.
+		idx := sibs indexOf: cur.
+		idx > 0 ifTrue: [
+			1 to: idx - 1 do: [ :i | | sm dr |
+				sm := sibs at: i.
+				sm visible ifTrue: [
+					dr := (sm fullBounds origin * scale) rounded
+						extent: (sm fullBounds extent * scale) rounded.
+					(dr intersects: deviceBounds) ifTrue: [ result add: dr ] ] ] ].
+		cur := owner ].
+	^ result
 ]
 
 { #category : 'accessing' }
@@ -189,14 +232,13 @@ WebViewFormRenderer >> updateAll [
 		self validate ifFalse: [ ^ self ].
 		texture updateTexturePixels: form bits pitch: form width * 4.
 		deferUpdates ifTrue: [ ^ self ].
-		renderer copy: texture.
-		self copyOverlay.
+		self compositeAll.
 		renderer present ]
 ]
 
 { #category : 'private' }
 WebViewFormRenderer >> useDeferredUpdates [
-	mutex critical: [ renderer copy: texture. self copyOverlay. renderer present ]
+	mutex critical: [ self compositeAll. renderer present ]
 ]
 
 { #category : 'overlay' }

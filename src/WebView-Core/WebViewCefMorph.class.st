@@ -69,9 +69,10 @@ WebViewCefMorph >> delete [
 
 { #category : 'drawing' }
 WebViewCefMorph >> drawOn: aCanvas [
-	super drawOn: aCanvas.
-	lastSeq < 0 ifTrue: [
-		aCanvas drawString: 'WebViewCefMorph - waiting for CEF frames...' at: self topLeft + (8@8) font: nil color: Color cyan ]
+	"The live CEF texture is composited over us by WebViewFormRenderer (occlusion-
+	clipped to real z-order). We only draw an opaque backing so the browser area is
+	part of the world Form and morphs in front occlude it correctly."
+	aCanvas fillRectangle: self bounds color: Color white
 ]
 
 { #category : 'private' }

@@ -84,11 +84,27 @@ different binary with the `WV_CEF_HOST` env var or `WebViewCefMorph binaryPath:`
   starts one only if the port is free.
 - Health check: `curl -m 8 -X POST localhost:8086/eval -H 'Content-Type: application/json' -d '{"code":"1+1"}'`.
 
+## Z-order (Morphs over the browser)
+
+The browser texture composites on top of the world in its rectangle, but it is
+**occlusion-clipped to the live Morphic z-order**: before each present, the
+renderer subtracts the device rectangles of any morph in front of the browser
+morph (at any ancestor level) from the browser's bounds, and copies the CEF
+texture only into the remaining pieces (`WebViewFormRenderer>>occludersFor:target:`
++ `drawOverlayOccluded:`). So a Morph placed over the browser appears on top of
+the page, and bringing the browser `comeToFront` covers the Morph again — z-order
+is respected every frame.
+
+This replaced an earlier attempt at alpha-hole compositing (world texture as
+ARGB8888 + a punched transparent hole): on this macOS/Metal SDL backend an
+ARGB8888 streaming texture uploaded from the Pharo world Form rendered
+transparent regardless of the Form's opaque alpha, so the occlusion-clipping
+route (which keeps the known-good XRGB8888 world texture) is used instead.
+
 ## Known limitations (deferred post-v1)
 
-- The browser texture composites **on top** of the world in its rectangle
-  (world texture is XRGB8888, no alpha), so Morphs cannot overlap the browser and
-  dropdowns drawn over the page are hidden. Needs alpha-hole compositing.
+- Occlusion is rectangular: a morph in front clips the browser by its bounding
+  box, so non-rectangular / rounded morphs occlude a slightly larger rectangle.
 - IME, popup/`<select>` widgets, and a Servo backend are not implemented.
 - `cef_host.app` is ad-hoc signed (local use). Distribution needs Developer ID
   signing + notarization — see `docs/DISTRIBUTION.md`.
