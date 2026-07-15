@@ -23,6 +23,38 @@ WebViewProjectPlan class >> addReport: aSymbol text: aString [
 	self reports at: aSymbol put: aString
 ]
 
+{ #category : 'plan' }
+WebViewProjectPlan class >> architectureDecision [
+	"Locked 2026-07-15: how CEF is hosted (see reportAt: #M3-CEF)."
+	^ 'CEF backend = SEPARATE PROCESS + SHARED MEMORY (not in-process).
+
+A self-owned cef_host.app (we build + codesign it, bundling CEF.framework +
+helper subprocess bundles) runs CEF in windowless/OSR mode. CefRenderHandler
+OnPaint writes RAW BGRA + dirty rects into POSIX shared memory. Pharo mmaps the
+same segment and uploads straight to the SDL overlay texture - no PNG, no decode.
+Input flows Pharo -> control channel -> host -> CEF SendMouse*/SendKey*.
+
+Why not in-process (matches the original plan wording but rejected):
+- CEF wants the main thread + NSApplication; the Pharo VM already owns them (SDL).
+- CEF macOS needs helper .app bundles inside the HOST app bundle; we do not own
+  Pharo.app and would break its codesignature.
+- A CEF crash would take down the whole Pharo image.
+
+Why separate process wins:
+- We own cef_host.app: bundle layout + codesigning are ours to satisfy.
+- CRASH ISOLATION: a page crash kills only cef_host (restartable); morphs survive.
+- Same performance: raw BGRA, no encode/decode; shared memory adds at most one
+  memcpy (often zero if Pharo uploads directly from the mapped buffer).
+
+Multiple simultaneous browsers: a CEF-browser-level feature (one CefInitialize,
+N CefBrowser) - works either way. Separate process ADDS the option of multiple
+host processes for isolation. The real multi-window work is OURS: WebViewFormRenderer
+must hold a LIST of overlays (per morph {texture, bounds}), composited in z-order
+(currently a single overlay slot). That is the M5 groundwork, engine-independent.
+
+CEF chosen: 144.0.30 (chromium 144.0.7559.257), stable, macosarm64 minimal.'
+]
+
 { #category : 'initialization' }
 WebViewProjectPlan class >> initialize [
 	"WebViewProjectPlan initialize"

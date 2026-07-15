@@ -13,6 +13,11 @@ Class {
 	#package : 'WebView-Core'
 }
 
+{ #category : 'input' }
+WebViewCefMorph >> browserExtent [
+	^ (shm notNil and: [ shm isValid ]) ifTrue: [ shm width @ shm height ] ifFalse: [ self extent ]
+]
+
 { #category : 'submorphs-add/remove' }
 WebViewCefMorph >> delete [
 	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
@@ -42,6 +47,18 @@ WebViewCefMorph >> formRendererOrNil [
 	^ (r isKindOf: WebViewFormRenderer) ifTrue: [ r ] ifFalse: [ nil ]
 ]
 
+{ #category : 'event handling' }
+WebViewCefMorph >> handlesKeyboard: anEvent [ ^ true
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> handlesMouseDown: anEvent [ ^ true
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> handlesMouseMove: anEvent [ ^ true
+]
+
 { #category : 'initialization' }
 WebViewCefMorph >> initialize [
 	super initialize.
@@ -60,6 +77,30 @@ WebViewCefMorph >> intoWorld: aWorld [
 	super intoWorld: aWorld.
 	self comeToFront.
 	self startStepping
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> keyStroke: anEvent [
+	| ch |
+	ch := anEvent keyCharacter.
+	ch ifNotNil: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ]
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> mouseDown: anEvent [
+	| p |
+	self comeToFront.
+	p := self toBrowserCoords: anEvent position.
+	self writeCommand: { 'type' -> 'click'. 'x' -> p x. 'y' -> p y } asDictionary.
+	self takeKeyboardFocus
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> mouseMove: anEvent [
+	| p |
+	anEvent anyButtonPressed ifFalse: [ ^ self ].
+	p := self toBrowserCoords: anEvent position.
+	self writeCommand: { 'type' -> 'move'. 'x' -> p x. 'y' -> p y } asDictionary
 ]
 
 { #category : 'frames' }
@@ -97,10 +138,39 @@ WebViewCefMorph >> step [
 WebViewCefMorph >> stepTime [ ^ 16
 ]
 
+{ #category : 'input' }
+WebViewCefMorph >> toBrowserCoords: aWorldPoint [
+	| local be me |
+	local := aWorldPoint - self topLeft.
+	be := self browserExtent.
+	me := self extent.
+	^ (((local x * be x / (me x max: 1)) rounded) max: 0) @ (((local y * be y / (me y max: 1)) rounded) max: 0)
+]
+
 { #category : 'accessing' }
 WebViewCefMorph >> url: aString [ ^ url := aString
 ]
 
+{ #category : 'event handling' }
+WebViewCefMorph >> wantsKeyboardFocusFor: aSubmorph [ ^ true
+]
+
 { #category : 'stepping' }
 WebViewCefMorph >> wantsSteps [ ^ true
+]
+
+{ #category : 'input' }
+WebViewCefMorph >> writeCommand: aDictionary [
+	"Append one JSON command line to the CEF host input channel."
+	[ | line stream |
+	line := String streamContents: [ :s |
+		s nextPut: ${.
+		aDictionary keysAndValuesDo: [ :k :v |
+			s nextPut: $"; nextPutAll: k; nextPutAll: '":'.
+			v isNumber ifTrue: [ s nextPutAll: v printString ] ifFalse: [ s nextPut: $"; nextPutAll: v asString; nextPut: $" ].
+			s nextPutAll: ',' ].
+		s nextPutAll: '"_":0}' ].
+	stream := (File named: inputPath) openForAppend.
+	[ stream nextPutAll: line asByteArray; nextPut: Character lf asInteger ] ensure: [ stream close ] ]
+		on: Error do: [ :e | WebViewProjectPlan log: 'CefMorph writeCommand error: ', e messageText ]
 ]
