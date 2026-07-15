@@ -2,8 +2,16 @@
 #include "wv_control.h"
 
 #include "include/cef_browser.h"
+#include "include/cef_frame.h"
 #include "include/cef_parser.h"
+#include "include/cef_v8.h"
 #include "include/wrapper/cef_helpers.h"
+
+// Kept in sync with wv_client.cpp's OnLoadStart fallback injection.
+static const char* kPharoBridgeJS =
+    "window.pharo=window.pharo||{emit:function(n,d){try{"
+    "console.log('__PHARO__'+JSON.stringify({event:'js',name:n,"
+    "data:(d===undefined?null:d)}));}catch(e){}}};";
 
 WvApp::WvApp(WvShm* shm, std::string url, int width, int height,
              std::string control_path)
@@ -42,6 +50,7 @@ void WvApp::OnContextInitialized() {
     client_ = new WvClient(shm_, width_, height_);
     if (!control_path_.empty()) {
         client_->setStatusPath(control_path_ + ".status");
+        client_->setEventsPath(control_path_ + ".events");
     }
 
     CefWindowInfo window_info;
@@ -62,4 +71,11 @@ void WvApp::OnContextInitialized() {
     if (!control_path_.empty()) {
         WvControl::start(control_path_, client_);
     }
+}
+
+void WvApp::OnContextCreated(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                             CefRefPtr<CefV8Context>) {
+    // Runs in the render side before page scripts, so window.pharo.emit is
+    // always defined (the OnLoadStart injection is a single-process fallback).
+    if (frame) frame->ExecuteJavaScript(kPharoBridgeJS, frame->GetURL(), 0);
 }

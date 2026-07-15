@@ -20,7 +20,8 @@ Class {
 		'menuButton',
 		'menuPanel',
 		'barHeight',
-		'places'
+		'places',
+		'titleLabel'
 	],
 	#category : 'WebView-Example',
 	#package : 'WebView-Example'
@@ -37,7 +38,10 @@ WebViewMenuBrowserMorph >> buildBar [
 	menuButton target: self; actionSelector: #toggleMenu; label: 'Steder  ▾'.
 	menuButton color: (Color r: 0.2 g: 0.45 b: 0.85); borderWidth: 0.
 	menuButton label: 'Steder  ▾'.
-	self addMorph: menuButton
+	self addMorph: menuButton.
+	titleLabel := StringMorph contents: '(velg et sted i menyen)'.
+	titleLabel color: (Color gray: 0.25).
+	self addMorph: titleLabel
 ]
 
 { #category : 'menu' }
@@ -72,6 +76,8 @@ WebViewMenuBrowserMorph >> buildMenuPanel [
 WebViewMenuBrowserMorph >> buildWebview [
 	webview := WebViewCefMorph new.
 	webview url: (places first value).
+	webview onTitleChange: [ :e | self updateTitle: (e at: 'title' ifAbsent: [ '' ]) ].
+	webview onPageLoad: [ :e | self updateTitle: '✓ ', (e at: 'url' ifAbsent: [ '' ]) ].
 	self addMorph: webview
 ]
 
@@ -124,6 +130,7 @@ WebViewMenuBrowserMorph >> initialize [
 { #category : 'layout' }
 WebViewMenuBrowserMorph >> layoutWidgets [
 	menuButton position: (self left + 8) @ (self top + 6); extent: 130 @ (barHeight - 12).
+	titleLabel ifNotNil: [ titleLabel position: (self left + 152) @ (self top + ((barHeight - titleLabel height) // 2)) ].
 	webview position: self left @ (self top + barHeight).
 	webview extent: self width @ (self height - barHeight)
 ]
@@ -151,6 +158,11 @@ WebViewMenuBrowserMorph >> toggleMenu [
 { #category : 'menu' }
 WebViewMenuBrowserMorph >> unhiliteRow: anEvent from: aMorph [
 	aMorph color: (Color gray: 0.16)
+]
+
+{ #category : 'events' }
+WebViewMenuBrowserMorph >> updateTitle: aString [
+	titleLabel ifNotNil: [ titleLabel contents: (aString truncateTo: 80) ]
 ]
 
 { #category : 'accessing' }

@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head><title>Event Bridge Test</title></head>
+<body style="font-family:sans-serif;padding:40px">
+  <h1>Event bridge</h1>
+  <p>This page emits events to Pharo via <code>window.pharo.emit</code>.</p>
+  <button id="b" onclick="window.pharo&&pharo.emit('click',{when:Date.now()})">emit click</button>
+  <script>
+    addEventListener('load', function () {
+      if (window.pharo) pharo.emit('ready', { n: 42, title: document.title });
+    });
+    setTimeout(function () {
+      if (window.pharo) pharo.emit('tick', 'hello-from-js');
+    }, 700);
+  </script>
+</body>
+</html>

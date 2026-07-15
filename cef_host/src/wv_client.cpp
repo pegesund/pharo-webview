@@ -1,11 +1,23 @@
 #include "wv_client.h"
 
 #include "include/cef_task.h"
+#include "include/cef_frame.h"
+#include "include/cef_parser.h"
+#include "include/cef_values.h"
 #include "include/base/cef_bind.h"
 #include "include/base/cef_callback.h"
 #include "include/wrapper/cef_closure_task.h"
 
 #include <cstdio>
+#include <cstring>
+
+// JS-side bridge injected on every main-frame load: window.pharo.emit(name, data)
+// logs a tagged console line that OnConsoleMessage forwards to the events file.
+static const char* kPharoBridgeJS =
+    "window.pharo=window.pharo||{emit:function(n,d){try{"
+    "console.log('__PHARO__'+JSON.stringify({event:'js',name:n,"
+    "data:(d===undefined?null:d)}));}catch(e){}}};";
+static const char* kPharoTag = "__PHARO__";
 
 // Headless single-process CEF has no vsync/display begin-frame source, so drive
 // repaints ourselves: invalidate the view on a timer and OnPaint follows.
@@ -76,11 +88,83 @@ void WvClient::OnBeforeClose(CefRefPtr<CefBrowser>) {
     browser_ = nullptr;
 }
 
+void WvClient::appendEventLine(const std::string& jsonLine) {
+    if (events_path_.empty()) return;
+    if (FILE* f = std::fopen(events_path_.c_str(), "a")) {
+        std::fwrite(jsonLine.data(), 1, jsonLine.size(), f);
+        std::fputc('\n', f);
+        std::fclose(f);
+    }
+}
+
+void WvClient::emitEvent(CefRefPtr<CefDictionaryValue> d) {
+    if (events_path_.empty() || !d) return;
+    CefRefPtr<CefValue> v = CefValue::Create();
+    v->SetDictionary(d);
+    appendEventLine(CefWriteJSON(v, JSON_WRITER_DEFAULT).ToString());
+}
+
 void WvClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoading,
-                                    bool, bool) {
+                                    bool canGoBack, bool canGoForward) {
     if (!isLoading && browser) {
         browser->GetHost()->Invalidate(PET_VIEW);
     }
+    CefRefPtr<CefDictionaryValue> d = CefDictionaryValue::Create();
+    d->SetString("event", "loadingState");
+    d->SetBool("isLoading", isLoading);
+    d->SetBool("canGoBack", canGoBack);
+    d->SetBool("canGoForward", canGoForward);
+    emitEvent(d);
+}
+
+void WvClient::OnLoadStart(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                           TransitionType) {
+    if (!frame || !frame->IsMain()) return;
+    // Install the JS bridge early so page scripts can call window.pharo.emit().
+    frame->ExecuteJavaScript(kPharoBridgeJS, frame->GetURL(), 0);
+    CefRefPtr<CefDictionaryValue> d = CefDictionaryValue::Create();
+    d->SetString("event", "loadStart");
+    d->SetString("url", frame->GetURL());
+    emitEvent(d);
+}
+
+void WvClient::OnLoadEnd(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                         int httpStatusCode) {
+    if (!frame || !frame->IsMain()) return;
+    CefRefPtr<CefDictionaryValue> d = CefDictionaryValue::Create();
+    d->SetString("event", "loadEnd");
+    d->SetString("url", frame->GetURL());
+    d->SetInt("httpStatus", httpStatusCode);
+    emitEvent(d);
+}
+
+void WvClient::OnLoadError(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+                           ErrorCode errorCode, const CefString& errorText,
+                           const CefString& failedUrl) {
+    if (frame && !frame->IsMain()) return;
+    CefRefPtr<CefDictionaryValue> d = CefDictionaryValue::Create();
+    d->SetString("event", "loadError");
+    d->SetInt("errorCode", errorCode);
+    d->SetString("errorText", errorText);
+    d->SetString("url", failedUrl);
+    emitEvent(d);
+}
+
+void WvClient::OnTitleChange(CefRefPtr<CefBrowser>, const CefString& title) {
+    CefRefPtr<CefDictionaryValue> d = CefDictionaryValue::Create();
+    d->SetString("event", "title");
+    d->SetString("title", title);
+    emitEvent(d);
+}
+
+bool WvClient::OnConsoleMessage(CefRefPtr<CefBrowser>, cef_log_severity_t,
+                                const CefString& message, const CefString&, int) {
+    std::string m = message.ToString();
+    if (m.rfind(kPharoTag, 0) == 0) {  // starts with the bridge tag
+        appendEventLine(m.substr(std::strlen(kPharoTag)));  // remainder is JSON
+        return true;  // handled: suppress default console logging
+    }
+    return false;
 }
 
 void WvClient::OnAddressChange(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,

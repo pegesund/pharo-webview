@@ -53,8 +53,9 @@ WebViewCefMorph >> browserExtent [
 
 { #category : 'lifecycle' }
 WebViewCefMorph >> cleanupFiles [
-	#('.shm' '.shm.cache' '.input' '.input.status' '.pid') do: [ :suffix |
-		[ ('/tmp/wv-cef-', id printString, suffix) asFileReference ensureDelete ] on: Error do: [:e|] ]
+	#('.shm' '.shm.cache' '.input' '.input.status' '.input.events' '.pid') do: [ :suffix |
+		[ ('/tmp/wv-cef-', id printString, suffix) asFileReference ensureDelete ] on: Error do: [:e|] ].
+	self setProperty: #wvEventsOffset toValue: 0
 ]
 
 { #category : 'submorphs-add/remove' }
@@ -65,6 +66,19 @@ WebViewCefMorph >> delete [
 	self killHost.
 	self cleanupFiles.
 	super delete
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> dispatchEventLine: aString [
+	| evt name |
+	evt := [ STONJSON fromString: aString ] on: Error do: [ :e | nil ].
+	(evt isNil or: [ (evt isKindOf: Dictionary) not ]) ifTrue: [ ^ self ].
+	name := evt at: 'event' ifAbsent: [ nil ].
+	name ifNil: [ ^ self ].
+	self fireCallbacks: name asSymbol with: evt.
+	name = 'js' ifTrue: [
+		(evt at: 'name' ifAbsent: [ nil ]) ifNotNil: [ :jn |
+			self fireCallbacks: ('js:', jn) asSymbol with: evt ] ]
 ]
 
 { #category : 'drawing' }
@@ -82,6 +96,22 @@ WebViewCefMorph >> ensureShm [
 	shmPath asFileReference exists ifFalse: [ ^ false ].
 	shm := WvSharedMemory openPath: shmPath.
 	^ shm notNil and: [ shm isValid ]
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> eventsPath [
+	^ inputPath, '.events'
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> fireCallbacks: aSymbol with: evt [
+	| cbs |
+	cbs := self valueOfProperty: #wvCallbacks ifAbsent: [ ^ self ].
+	(cbs at: aSymbol ifAbsent: [ nil ]) ifNotNil: [ :blocks |
+		blocks copy do: [ :blk |
+			[ blk cull: evt ]
+				on: Error
+				do: [ :e | WebViewProjectPlan log: 'wv callback error: ', e printString ] ] ]
 ]
 
 { #category : 'event handling' }
@@ -277,6 +307,73 @@ WebViewCefMorph >> mouseWheel: anEvent [
 		label: 'mouseWheel'
 ]
 
+{ #category : 'events' }
+WebViewCefMorph >> onEvent: aSymbol do: aBlock [
+	"Register aBlock (arg = the parsed event Dictionary) for a reverse event.
+	Events: #loadStart #loadEnd #loadingState #loadError #title #js.
+	Returns the block so it can be used to remove it later."
+	| cbs |
+	cbs := self valueOfProperty: #wvCallbacks ifAbsent: [ nil ].
+	cbs ifNil: [ cbs := IdentityDictionary new. self setProperty: #wvCallbacks toValue: cbs ].
+	(cbs at: aSymbol ifAbsentPut: [ OrderedCollection new ]) add: aBlock.
+	^ aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onJs: aBlock [
+	"Any window.pharo.emit(name, data) call (arg has #name #data)."
+	^ self onEvent: #js do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onJs: aName do: aBlock [
+	"window.pharo.emit(aName, data) with a specific name (arg has #name #data)."
+	^ self onEvent: ('js:', aName) asSymbol do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onLoadError: aBlock [
+	"Arg has #errorCode #errorText #url."
+	^ self onEvent: #loadError do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onLoadStart: aBlock [
+	^ self onEvent: #loadStart do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onPageLoad: aBlock [
+	"Fires when the main frame finishes loading (arg has #url, #httpStatus)."
+	^ self onEvent: #loadEnd do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> onTitleChange: aBlock [
+	"Arg has #title."
+	^ self onEvent: #title do: aBlock
+]
+
+{ #category : 'events' }
+WebViewCefMorph >> pumpEvents [
+	"Tail the reverse event file and dispatch complete JSON lines to callbacks."
+	| ref off size newBytes lastNl chunk |
+	ref := self eventsPath asFileReference.
+	ref exists ifFalse: [ ^ self ].
+	off := self valueOfProperty: #wvEventsOffset ifAbsent: [ 0 ].
+	size := ref size.
+	size < off ifTrue: [ off := 0 ].
+	size <= off ifTrue: [ self setProperty: #wvEventsOffset toValue: size. ^ self ].
+	newBytes := ref binaryReadStreamDo: [ :s | s skip: off. s next: size - off ].
+	lastNl := 0.
+	1 to: newBytes size do: [ :i | (newBytes at: i) = 10 ifTrue: [ lastNl := i ] ].
+	lastNl = 0 ifTrue: [ ^ self ].
+	chunk := newBytes copyFrom: 1 to: lastNl.
+	self setProperty: #wvEventsOffset toValue: off + lastNl.
+	chunk utf8Decoded lines do: [ :ln |
+		ln trimBoth ifNotEmpty: [ :s | self dispatchEventLine: s ] ]
+]
+
 { #category : 'frames' }
 WebViewCefMorph >> pushFrame [
 	| r scale |
@@ -335,6 +432,7 @@ WebViewCefMorph >> step [
 	self visible ifFalse: [
 		self formRendererOrNil ifNotNil: [ :r | r removeOverlayFor: self ].
 		^ self ].
+	self pumpEvents.
 	self ensureShm ifFalse: [ ^ self ].
 	shm alive ifFalse: [ ^ self ].
 	self maybeResize.

@@ -5,12 +5,15 @@
 
 #include "include/cef_app.h"
 #include "include/cef_browser_process_handler.h"
+#include "include/cef_render_process_handler.h"
 #include "wv_client.h"
 #include "wv_shm.h"
 
 #include <string>
 
-class WvApp : public CefApp, public CefBrowserProcessHandler {
+class WvApp : public CefApp,
+              public CefBrowserProcessHandler,
+              public CefRenderProcessHandler {
 public:
     WvApp(WvShm* shm, std::string url, int width, int height,
           std::string control_path);
@@ -19,12 +22,20 @@ public:
     CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override {
         return this;
     }
+    CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override {
+        return this;
+    }
     void OnBeforeCommandLineProcessing(
         const CefString& process_type,
         CefRefPtr<CefCommandLine> command_line) override;
 
     // CefBrowserProcessHandler
     void OnContextInitialized() override;
+
+    // CefRenderProcessHandler: inject the window.pharo bridge into every V8
+    // context before any page script runs (single-process: same object).
+    void OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+                          CefRefPtr<CefV8Context> context) override;
 
     CefRefPtr<WvClient> client() { return client_; }
 

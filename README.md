@@ -85,6 +85,34 @@ different binary with the `WV_CEF_HOST` env var or `WebViewCefMorph binaryPath:`
   starts one only if the port is free.
 - Health check: `curl -m 8 -X POST localhost:8086/eval -H 'Content-Type: application/json' -d '{"code":"1+1"}'`.
 
+## Events & JS ↔ Pharo callbacks
+
+`cef_host` writes a reverse event channel (`<control>.events`, one JSON object per
+line); `WebViewCefMorph` tails it in its step loop and dispatches to blocks you
+register. Lifecycle events come from CEF's load/display handlers; a
+`window.pharo.emit(name, data)` bridge (injected into every V8 context before page
+scripts) lets page JavaScript push structured data to Pharo.
+
+```smalltalk
+webview onPageLoad:    [ :e | Transcript showln: 'loaded ', (e at: 'url') ].
+webview onTitleChange: [ :e | Transcript showln: (e at: 'title') ].
+webview onLoadError:   [ :e | Transcript showln: 'error ', (e at: 'errorText') ].
+webview onJs:          [ :e | inspect: (e at: 'data') ].          "any emit()"
+webview onJs: 'cart'   do: [ :e | updateCart: (e at: 'data') ].   "emit('cart', …)"
+"generic:  webview onEvent: #loadEnd do: [ :e | … ]"
+```
+
+```js
+// in the page:
+window.pharo.emit('cart', { items: 3, total: 49.9 });   // -> arrives as a Dictionary
+```
+
+Event kinds: `loadStart`, `loadEnd` (`url`, `httpStatus`), `loadingState`
+(`isLoading`, `canGoBack`, `canGoForward`), `loadError`, `title`, and `js`
+(`name`, `data`). The block arg is the parsed event `Dictionary`; callbacks run on
+the UI process, wrapped so one failing block can't break stepping.
+`WebViewMenuBrowserMorph` shows the live page title in its bar via `onTitleChange:`.
+
 ## Z-order (Morphs over the browser)
 
 The browser texture composites on top of the world in its rectangle, but it is
