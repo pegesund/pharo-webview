@@ -48,7 +48,7 @@ Why this shape (all hard-won — see `WebViewProjectPlan reportAt: #M3CEF`):
 ```
 src/            Tonel export of the Pharo packages:
                 WebView-Core (morphs + renderer), WebView-FFI (WvShim, WvSharedMemory),
-                WebView-Example (WebViewBrowserMorph, WebViewTabbedBrowserMorph),
+                WebView-Example (WebViewBrowserMorph, WebViewTabbedBrowserMorph, WebViewMenuBrowserMorph),
                 WebView-Planning, WebView-Core-Tests
 cef_host/       The CEF host app (C++): CefRenderHandler → shared memory, input channel,
                 navigation. third_party/cef holds the CEF distribution (fetched, gitignored).
@@ -71,6 +71,7 @@ Then in Pharo (packages loaded from `src/`):
 WebViewFormRenderer install.                      "activate the compositing renderer"
 WebViewBrowserMorph new openInWorld.              "a browser widget (toolbar + address bar)"
 WebViewTabbedBrowserMorph new openInWorld.        "a tabbed multi-view browser"
+WebViewMenuBrowserMorph open.                     "a 'Steder' dropdown menu that overlays the page (z-order demo)"
 ```
 
 The morph launches/kills its own `cef_host` process. Point the Pharo side at a
