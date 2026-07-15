@@ -84,7 +84,8 @@ WvPage class >> openBrowserOn: aUrl [
 { #category : 'testing' }
 WvPage class >> test: aName on: aMorph do: aBlock [
 	"Run aBlock (which takes a WvPage) as a named test in a background process.
-	Logs each passing assert, then a PASS/FAIL/ERROR summary. Returns the Process."
+	Logs each passing assert; on failure/error logs a summary AND saves a PNG
+	screenshot of the page to /tmp/wv-fail-<name>.png. Returns the Process."
 	| page |
 	page := self on: aMorph.
 	WebViewProjectPlan log: '── test: ', aName.
@@ -93,9 +94,11 @@ WvPage class >> test: aName on: aMorph do: aBlock [
 		    WebViewProjectPlan log: '✓ PASS: ', aName, ' (', page assertPassCount printString, ' checks)' ]
 			on: WvAssertionFailed
 			do: [ :e | WebViewProjectPlan log: '✗ FAIL: ', aName, ' — ', e messageText,
-				' (after ', page assertPassCount printString, ' passing checks)' ] ]
+					' (after ', page assertPassCount printString, ' passing checks)'.
+				page saveFailureShot: aName ] ]
 		on: Error
-		do: [ :e | WebViewProjectPlan log: '✗ ERROR: ', aName, ' — ', e printString ] ] fork
+		do: [ :e | WebViewProjectPlan log: '✗ ERROR: ', aName, ' — ', e printString.
+			page saveFailureShot: aName ] ] fork
 ]
 
 { #category : 'demos' }
@@ -108,6 +111,11 @@ WvPage class >> wikipediaSearchDemoOn: aMorph for: aTerm [
 		page submit: 'input[name=search]'.
 		WebViewProjectPlan log: 'Wikipedia[', aTerm, '] -> ', (page textOf: '#firstHeading') printString.
 		WebViewProjectPlan log: '  ', (((page textOf: '.mw-parser-output p') ifNil: [ '' ]) truncateTo: 160) ]
+]
+
+{ #category : 'screenshot' }
+WvPage >> asForm [
+	^ morph asForm
 ]
 
 { #category : 'asserting' }
@@ -277,6 +285,22 @@ WvPage >> pressEnterIn: cssSelector [
 WvPage >> q: cssSelector [
 	"JS source for document.querySelector(selector)."
 	^ 'document.querySelector(', (self jsStr: cssSelector), ')'
+]
+
+{ #category : 'screenshot' }
+WvPage >> saveFailureShot: aName [
+	| slug ref |
+	slug := (aName select: [ :c | c isAlphaNumeric ]).
+	slug isEmpty ifTrue: [ slug := 'test' ].
+	ref := [ self screenshotTo: '/tmp/wv-fail-', slug, '.png' ] on: Error do: [ :e | nil ].
+	ref ifNotNil: [ WebViewProjectPlan log: '  📷 screenshot: ', ref fullName ].
+	^ ref
+]
+
+{ #category : 'screenshot' }
+WvPage >> screenshotTo: aPath [
+	"Save a PNG of the current page; answers the FileReference (or nil)."
+	^ morph saveScreenshotTo: aPath
 ]
 
 { #category : 'private' }

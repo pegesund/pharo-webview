@@ -46,6 +46,21 @@ WebViewCefMorph class >> nextId [
 	^ n
 ]
 
+{ #category : 'screenshot' }
+WebViewCefMorph >> asForm [
+	"A Pharo Form snapshot of the current browser frame, read from shared memory."
+	| w h form bits po |
+	(shm isNil or: [ shm isValid not ]) ifTrue: [ ^ nil ].
+	w := shm width. h := shm height.
+	(w > 0 and: [ h > 0 ]) ifFalse: [ ^ nil ].
+	form := Form extent: w @ h depth: 32.
+	bits := form bits.
+	po := shm pixelsOffset.
+	1 to: w * h do: [ :i |
+		bits at: i put: ((shm u32At: (po + ((i - 1) * 4))) bitOr: 16rFF000000) ].
+	^ form
+]
+
 { #category : 'input' }
 WebViewCefMorph >> browserExtent [
 	^ (shm notNil and: [ shm isValid ]) ifTrue: [ shm width @ shm height ] ifFalse: [ self extent ]
@@ -505,6 +520,18 @@ WebViewCefMorph >> pushFrameDirty: useDirty [
 		pitch: shm width * 4
 		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)
 		dirtyRects: rects
+]
+
+{ #category : 'screenshot' }
+WebViewCefMorph >> saveScreenshotTo: aPathStringOrRef [
+	"Write a PNG of the current browser frame. Answers the FileReference, or nil."
+	| form ref |
+	form := self asForm.
+	form ifNil: [ ^ nil ].
+	ref := aPathStringOrRef asFileReference.
+	ref parent ensureCreateDirectory.
+	form writePNGFileNamed: ref fullName.
+	^ ref
 ]
 
 { #category : 'geometry' }

@@ -38,7 +38,7 @@ and get callbacks back from the page's JavaScript.
 - 🤖 **Automation & test DSL** — `WvPage` lets you script pages in linear
   Smalltalk (`goto:`, `fill:with:`, `submit:`, `textOf:`, `count:` …) and assert
   on them (`assertText:equals:`, `assertCount:atLeast:` …) with a PASS/FAIL
-  test runner, all running off the UI process so reads return synchronously.
+  test runner that saves a PNG screenshot of the page on failure.
 
 ---
 
@@ -240,6 +240,25 @@ WvPage test: 'Wikipedia search' on: m do: [ :page |
 **Assertions:** `assert:` `assert:describe:` `assertExists:` `assertAbsent:`
 `assertText:equals:` `assertText:includes:` `assertCount:is:` `assertCount:atLeast:`
 `assertTitleIncludes:` `assertUrlIncludes:`.
+
+### Screenshots
+
+Grab a PNG of the current page straight from the shared-memory frame (no OS
+screen capture involved — it's the browser's own pixels):
+
+```smalltalk
+page screenshotTo: '/tmp/report.png'.   "-> a FileReference"
+aWebViewCefMorph asForm.                 "-> a Pharo Form, to show/compose in Morphic"
+```
+
+`test:on:do:` does this for you on a failing (or erroring) test — it saves
+`/tmp/wv-fail-<name>.png` and logs the path, so a failed run leaves a picture of
+exactly what the page looked like:
+
+```
+✗ FAIL: checkout flow — text of '#total' = '49.90' — got '0.00' (after 3 passing checks)
+  📷 screenshot: /tmp/wv-fail-checkoutflow.png
+```
 
 ## How it works
 
