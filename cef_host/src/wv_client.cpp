@@ -7,10 +7,14 @@
 
 #include <cstdio>
 
+static int g_pumpn = 0;
 static void PumpBeginFrame(CefRefPtr<CefBrowser> browser) {
     if (!browser || !browser->GetHost()) return;
-    browser->GetHost()->SendExternalBeginFrame();
-    CefPostDelayedTask(TID_UI, base::BindOnce(&PumpBeginFrame, browser), 16);
+    if (g_pumpn == 0 || g_pumpn == 100)
+        { std::fprintf(stderr, "[wv_host] pump n=%d\n", g_pumpn); std::fflush(stderr); }
+    ++g_pumpn;
+    browser->GetHost()->Invalidate(PET_VIEW);
+    CefPostDelayedTask(TID_UI, base::BindOnce(&PumpBeginFrame, browser), 33);
 }
 
 WvClient::WvClient(WvShm* shm, int width, int height)
@@ -99,11 +103,9 @@ void WvClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoadin
     std::fprintf(stderr, "[wv_host] OnLoadingStateChange isLoading=%d\n", isLoading);
     std::fflush(stderr);
     if (!isLoading && browser) {
-        // Page finished loading -> force a repaint of the whole view.
         browser->GetHost()->Invalidate(PET_VIEW);
         browser->GetMainFrame()->ExecuteJavaScript(
-            "console.log('JS_ALIVE ' + window.innerWidth + 'x' + window.innerHeight "
-            "+ ' vis=' + document.visibilityState)",
+            "console.log('JS_ALIVE innerW=' + window.innerWidth + ' vis=' + document.visibilityState)",
             "wvdiag", 0);
     }
 }

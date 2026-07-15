@@ -21,9 +21,15 @@ void WvApp::OnBeforeCommandLineProcessing(const CefString&,
     // sandbox-less host that subprocess cannot function (it exited with 15),
     // so no frames were produced. Run the GPU/viz IN the browser process where
     // our message loop drives it, with the SwiftShader software GL backend.
-    command_line->AppendSwitch("disable-gpu");
+    // Headless macOS has no display, so a separate GPU process cannot create a
+    // GL/Metal context and Chromium fatally aborts with "GPU process isn't
+    // usable. Goodbye." Run viz IN the browser process (no separate GPU process
+    // to be declared unusable) with the SwiftShader software GL backend.
     command_line->AppendSwitch("in-process-gpu");
     command_line->AppendSwitch("disable-gpu-sandbox");
+    command_line->AppendSwitch("disable-gpu-compositing");
+    command_line->AppendSwitchWithValue("use-gl", "angle");
+    command_line->AppendSwitchWithValue("use-angle", "swiftshader");
     // Do NOT touch the macOS Keychain: ad-hoc signing changes the binary hash
     // every build, so the Keychain ACL re-prompts endlessly and blocks startup
     // (which also stalled OnPaint). A mock keychain + basic password store
@@ -39,7 +45,6 @@ void WvApp::OnContextInitialized() {
 
     CefWindowInfo window_info;
     window_info.SetAsWindowless(0);  // no parent -> offscreen rendering
-    window_info.external_begin_frame_enabled = true;  // no CVDisplayLink headless
 
     CefBrowserSettings browser_settings;
     browser_settings.windowless_frame_rate = 60;
@@ -53,8 +58,6 @@ void WvApp::OnContextInitialized() {
     fprintf(stderr, "[wv_host] CreateBrowser returned %d\n", ok);
     fflush(stderr);
 
-    // Start the input control channel once we have a client to route to.
-    if (!control_path_.empty()) {
-        WvControl::start(control_path_, client_);
-    }
+    // (input control channel temporarily disabled while isolating a crash)
+    (void)control_path_;
 }

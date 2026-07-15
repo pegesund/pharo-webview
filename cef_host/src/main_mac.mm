@@ -37,6 +37,12 @@ static std::string bundlePath() {
 
 int main(int argc, char* argv[]) {
     @autoreleasepool {
+        {
+            std::string all;
+            for (int i = 0; i < argc; ++i) { all += argv[i]; all += " "; }
+            fprintf(stderr, "[wv_main] argc=%d argv: %.300s\n", argc, all.c_str());
+            fflush(stderr);
+        }
         // Load the CEF framework dynamically from the app bundle.
         CefScopedLibraryLoader library_loader;
         if (!library_loader.LoadInMain()) {
@@ -51,6 +57,16 @@ int main(int argc, char* argv[]) {
         std::string control_path = argc > 5 ? argv[5] : "/tmp/wv-cef.input";
 
         CefMainArgs main_args(argc, argv);
+
+        // Safety net: if this binary was launched as a CEF sub-process (some
+        // process types re-exec the main executable rather than the helper),
+        // run the sub-process logic and exit instead of crash-looping in the
+        // browser-process code below.
+        int exit_code = CefExecuteProcess(main_args, nullptr, nullptr);
+        if (exit_code >= 0) {
+            return exit_code;
+        }
+
         [WvApplication sharedApplication];
 
         WvShm shm;
@@ -71,9 +87,13 @@ int main(int argc, char* argv[]) {
         std::string base = bundlePath();
         std::string framework = base + "/Contents/Frameworks/Chromium Embedded Framework.framework";
         std::string helper = base + "/Contents/Frameworks/cef_host Helper.app/Contents/MacOS/cef_host Helper";
-        CefString(&settings.framework_dir_path) = framework;
-        CefString(&settings.browser_subprocess_path) = helper;
-        CefString(&settings.main_bundle_path) = base;
+        (void)framework;
+        (void)helper;
+        (void)base;
+        // On macOS CEF locates the framework and the "<App> Helper.app" bundles
+        // by convention from the main bundle. Setting these explicitly was
+        // preventing the helper from being launched (subprocesses fell back to
+        // re-execing the main binary, which crash-looped).
         // Unique cache dir per instance -> no singleton-lock clash between
         // multiple simultaneous browsers/hosts.
         std::string cache = shm_path + ".cache";
