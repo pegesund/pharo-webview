@@ -1,23 +1,32 @@
 "
-A tiny Smalltalk browser-automation DSL over a WebViewCefMorph.
+A tiny Smalltalk browser-automation + assertion DSL over a WebViewCefMorph.
 
 Because reads travel through the async JS bridge (delivered on the UI process),
-an automation script must run OFF the UI process. Use `on:script:`, which forks
-the script into a background process; then reads like `textOf:` block and return
-their value synchronously — without freezing the UI.
+an automation script must run OFF the UI process. Use `on:script:` (or the test
+runner `test:on:do:`), which forks the script into a background process; then
+reads like `textOf:` block and return their value synchronously.
 
 	| m |
 	m := WvPage openBrowserOn: 'https://en.wikipedia.org'.
-	WvPage on: m script: [ :page |
+	WvPage test: 'Wikipedia search' on: m do: [ :page |
+		page assertExists: 'input[name=search]'.
 		page fill: 'input[name=search]' with: 'Smalltalk-80'.
-		page submit: 'input[name=search]'.        ""waits for the result page""
-		Transcript showln: (page textOf: '#firstHeading').
-		Transcript showln: (page count: 'a[href^=""/wiki/""]') printString ].
+		page submit: 'input[name=search]'.               ""waits for the result page""
+		page assertTitleIncludes: 'Smalltalk'.
+		page assertText: '#firstHeading' equals: 'Smalltalk'.
+		page assertCount: 'a[href^=""/wiki/""]' atLeast: 10 ].
 
 Actions: goto: waitForLoad waitFor: click: clickAndWait: fill:with: submit:
-pressEnterIn: js: (fire-and-forget). Queries (block until the value returns):
-textOf: textsOf: valueOf: attr:of: exists: count: title url eval:. Ready-made
-demos: `WvPage hackerNewsDemoOn:` and `wikipediaSearchDemoOn:for:`.
+pressEnterIn: js:. Queries (block until the value returns): textOf: textsOf:
+valueOf: attr:of: exists: count: title url eval:.
+
+Assertions log each passing check and signal WvAssertionFailed on the first
+failure: assert: assert:describe: assertExists: assertAbsent: assertText:equals:
+assertText:includes: assertCount:is: assertCount:atLeast: assertTitleIncludes:
+assertUrlIncludes:. `test:on:do:` wraps a named test and logs a PASS/FAIL/ERROR
+summary with the passing-check count.
+
+Demos: `WvPage hackerNewsDemoOn:`, `wikipediaSearchDemoOn:for:`.
 "
 Class {
 	#name : 'WvPage',
@@ -25,7 +34,8 @@ Class {
 	#instVars : [
 		'morph',
 		'loadMark',
-		'stepMs'
+		'stepMs',
+		'passCount'
 	],
 	#category : 'WebView-Example',
 	#package : 'WebView-Example'
@@ -71,6 +81,23 @@ WvPage class >> openBrowserOn: aUrl [
 	^ m
 ]
 
+{ #category : 'testing' }
+WvPage class >> test: aName on: aMorph do: aBlock [
+	"Run aBlock (which takes a WvPage) as a named test in a background process.
+	Logs each passing assert, then a PASS/FAIL/ERROR summary. Returns the Process."
+	| page |
+	page := self on: aMorph.
+	WebViewProjectPlan log: '── test: ', aName.
+	^ [
+		[ [ aBlock value: page.
+		    WebViewProjectPlan log: '✓ PASS: ', aName, ' (', page assertPassCount printString, ' checks)' ]
+			on: WvAssertionFailed
+			do: [ :e | WebViewProjectPlan log: '✗ FAIL: ', aName, ' — ', e messageText,
+				' (after ', page assertPassCount printString, ' passing checks)' ] ]
+		on: Error
+		do: [ :e | WebViewProjectPlan log: '✗ ERROR: ', aName, ' — ', e printString ] ] fork
+]
+
 { #category : 'demos' }
 WvPage class >> wikipediaSearchDemoOn: aMorph for: aTerm [
 	"Forked demo: search Wikipedia for aTerm and log the article heading + intro."
@@ -81,6 +108,90 @@ WvPage class >> wikipediaSearchDemoOn: aMorph for: aTerm [
 		page submit: 'input[name=search]'.
 		WebViewProjectPlan log: 'Wikipedia[', aTerm, '] -> ', (page textOf: '#firstHeading') printString.
 		WebViewProjectPlan log: '  ', (((page textOf: '.mw-parser-output p') ifNil: [ '' ]) truncateTo: 160) ]
+]
+
+{ #category : 'asserting' }
+WvPage >> assert: aBoolean [
+	^ self assert: aBoolean describe: 'assertion'
+]
+
+{ #category : 'asserting' }
+WvPage >> assert: aBoolean describe: aDescription [
+	"Log a passing check; signal WvAssertionFailed on a failing one."
+	aBoolean == true
+		ifTrue: [ passCount := self assertPassCount + 1.
+			WebViewProjectPlan log: '  ✓ ', aDescription ]
+		ifFalse: [ WvAssertionFailed signal: aDescription ].
+	^ self
+]
+
+{ #category : 'asserting' }
+WvPage >> assertAbsent: cssSelector [
+	^ self assert: (self exists: cssSelector) not describe: 'absent: ', cssSelector
+]
+
+{ #category : 'asserting' }
+WvPage >> assertCount: cssSelector atLeast: minimum [
+	| n ok |
+	n := self count: cssSelector.
+	ok := (n isNil not) and: [ n >= minimum ].
+	^ self assert: ok describe: ('count ', cssSelector printString, ' >= ', minimum printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', n printString ])
+]
+
+{ #category : 'asserting' }
+WvPage >> assertCount: cssSelector is: expected [
+	| n ok |
+	n := self count: cssSelector.
+	ok := n = expected.
+	^ self assert: ok describe: ('count ', cssSelector printString, ' = ', expected printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', n printString ])
+]
+
+{ #category : 'asserting' }
+WvPage >> assertExists: cssSelector [
+	^ self assert: (self exists: cssSelector) describe: 'exists: ', cssSelector
+]
+
+{ #category : 'asserting' }
+WvPage >> assertPassCount [
+	^ passCount ifNil: [ 0 ]
+]
+
+{ #category : 'asserting' }
+WvPage >> assertText: cssSelector equals: expected [
+	| actual ok |
+	actual := self textOf: cssSelector.
+	ok := actual = expected.
+	^ self assert: ok describe: ('text of ', cssSelector printString, ' = ', expected printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', actual printString ])
+]
+
+{ #category : 'asserting' }
+WvPage >> assertText: cssSelector includes: substring [
+	| actual ok |
+	actual := self textOf: cssSelector.
+	ok := actual notNil and: [ actual includesSubstring: substring ].
+	^ self assert: ok describe: ('text of ', cssSelector printString, ' includes ', substring printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', actual printString ])
+]
+
+{ #category : 'asserting' }
+WvPage >> assertTitleIncludes: substring [
+	| t ok |
+	t := self title.
+	ok := t notNil and: [ t includesSubstring: substring ].
+	^ self assert: ok describe: ('title includes ', substring printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', t printString ])
+]
+
+{ #category : 'asserting' }
+WvPage >> assertUrlIncludes: substring [
+	| u ok |
+	u := self url.
+	ok := u notNil and: [ u includesSubstring: substring ].
+	^ self assert: ok describe: ('url includes ', substring printString),
+		(ok ifTrue: [ '' ] ifFalse: [ ' — got ', u printString ])
 ]
 
 { #category : 'querying' }

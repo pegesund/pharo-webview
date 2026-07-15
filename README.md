@@ -35,9 +35,10 @@ and get callbacks back from the page's JavaScript.
 - 📣 **Callbacks from the page** — page-load / title / error events, plus a
   `window.pharo.emit(name, data)` bridge so page JS can push structured data
   straight into your Pharo blocks.
-- 🤖 **Automation DSL** — `WvPage` lets you script pages in linear Smalltalk
-  (`goto:`, `fill:with:`, `submit:`, `textOf:`, `count:` …), running off the UI
-  process so reads return synchronously.
+- 🤖 **Automation & test DSL** — `WvPage` lets you script pages in linear
+  Smalltalk (`goto:`, `fill:with:`, `submit:`, `textOf:`, `count:` …) and assert
+  on them (`assertText:equals:`, `assertCount:atLeast:` …) with a PASS/FAIL
+  test runner, all running off the UI process so reads return synchronously.
 
 ---
 
@@ -206,6 +207,39 @@ WvPage on: m script: [ :page |
 - **Queries** (block until the value returns): `textOf:` `textsOf:` `valueOf:`
   `attr:of:` `exists:` `count:` `title` `url` `eval:`
 - Ready-made demos: `WvPage hackerNewsDemoOn:`, `WvPage wikipediaSearchDemoOn:for:`.
+
+### Assertions & tests
+
+The same DSL doubles as a little end-to-end test harness. `test:on:do:` runs a
+named test in the background, logs every passing check, and finishes with a
+PASS / FAIL / ERROR summary. Each assertion logs `✓ …` on success and signals
+`WvAssertionFailed` (with expected-vs-actual) on the first failure.
+
+```smalltalk
+WvPage test: 'Wikipedia search' on: m do: [ :page |
+	page goto: 'https://en.wikipedia.org'; waitForLoad.
+	page assertExists: 'input[name=search]'.
+	page fill: 'input[name=search]' with: 'Smalltalk-80'.
+	page submit: 'input[name=search]'.
+	page assertTitleIncludes: 'Smalltalk'.
+	page assertText: '#firstHeading' equals: 'Smalltalk'.
+	page assertText: '.mw-parser-output p' includes: 'object-oriented'.
+	page assertCount: 'a[href^="/wiki/"]' atLeast: 10 ].
+```
+
+```
+── test: Wikipedia search
+  ✓ exists: input[name=search]
+  ✓ title includes 'Smalltalk'
+  ✓ text of '#firstHeading' = 'Smalltalk'
+  ✓ text of '.mw-parser-output p' includes 'object-oriented'
+  ✓ count 'a[href^="/wiki/"]' >= 10
+✓ PASS: Wikipedia search (5 checks)
+```
+
+**Assertions:** `assert:` `assert:describe:` `assertExists:` `assertAbsent:`
+`assertText:equals:` `assertText:includes:` `assertCount:is:` `assertCount:atLeast:`
+`assertTitleIncludes:` `assertUrlIncludes:`.
 
 ## How it works
 
