@@ -9,7 +9,7 @@
 // Usage: node chrome-screencast.mjs <url> <outdir> [width] [height]
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, renameSync, mkdirSync, openSync, readSync, closeSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -89,6 +89,61 @@ ws.addEventListener('message', (ev) => {
     if (seq % 30 === 0) console.error(`[cdp] frame ${seq}`);
   }
 });
+
+// --- input channel: Pharo appends one JSON command per line to input.jsonl;
+// we tail it (tracking a byte offset) and dispatch CDP input events. ---
+const inputPath = join(outdir, 'input.jsonl');
+let inputOffset = 0;
+const inbuf = Buffer.alloc(64 * 1024);
+let partial = '';
+
+function dispatchCommand(cmd) {
+  if (cmd.type === 'move') {
+    send(ws, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: cmd.x, y: cmd.y });
+  } else if (cmd.type === 'click') {
+    const base = { x: cmd.x, y: cmd.y, button: 'left', buttons: 1, clickCount: 1 };
+    send(ws, 'Input.dispatchMouseEvent', { type: 'mousePressed', ...base });
+    send(ws, 'Input.dispatchMouseEvent', { type: 'mouseReleased', ...base });
+  } else if (cmd.type === 'scroll') {
+    send(ws, 'Input.dispatchMouseEvent', {
+      type: 'mouseWheel', x: cmd.x, y: cmd.y, deltaX: cmd.dx || 0, deltaY: cmd.dy || 0,
+    });
+  } else if (cmd.type === 'key') {
+    // cmd.text for character input; cmd.key/windowsVirtualKeyCode for specials
+    if (cmd.text) {
+      send(ws, 'Input.dispatchKeyEvent', { type: 'keyDown', text: cmd.text, key: cmd.key || cmd.text });
+      send(ws, 'Input.dispatchKeyEvent', { type: 'char', text: cmd.text, key: cmd.key || cmd.text });
+      send(ws, 'Input.dispatchKeyEvent', { type: 'keyUp', text: cmd.text, key: cmd.key || cmd.text });
+    }
+  }
+}
+
+function pollInput() {
+  try {
+    if (existsSync(inputPath)) {
+      // Handle truncation/recreation: if the file shrank, restart from the top.
+      const size = statSync(inputPath).size;
+      if (size < inputOffset) { inputOffset = 0; partial = ''; }
+      const fd = openSync(inputPath, 'r');
+      let n;
+      while ((n = readSync(fd, inbuf, 0, inbuf.length, inputOffset)) > 0) {
+        inputOffset += n;
+        partial += inbuf.toString('utf8', 0, n);
+        let idx;
+        while ((idx = partial.indexOf('\n')) >= 0) {
+          const line = partial.slice(0, idx).trim();
+          partial = partial.slice(idx + 1);
+          if (line) {
+            try { dispatchCommand(JSON.parse(line)); }
+            catch (e) { console.error('[cdp] bad input line:', line); }
+          }
+        }
+      }
+      closeSync(fd);
+    }
+  } catch (e) { console.error('[cdp] input poll error', e.message); }
+}
+setInterval(pollInput, 20);
 
 ws.addEventListener('close', () => { console.error('[cdp] ws closed'); shutdown(); });
 ws.addEventListener('error', (e) => { console.error('[cdp] ws error', e.message || e); });

@@ -12,6 +12,12 @@ Class {
 	#package : 'WebView-Core'
 }
 
+{ #category : 'input' }
+WebViewCdpMorph >> browserExtent [
+	"The pixel size of the current browser frame (falls back to morph extent)."
+	^ currentForm ifNotNil: [ :f | f extent ] ifNil: [ self extent ]
+]
+
 { #category : 'submorphs-add/remove' }
 WebViewCdpMorph >> delete [
 	self formRendererOrNil ifNotNil: [ :r | r clearOverlay ].
@@ -43,6 +49,26 @@ WebViewCdpMorph >> framePath [
 	^ frameDir, '/frame.png'
 ]
 
+{ #category : 'event handling' }
+WebViewCdpMorph >> handlesKeyboard: anEvent [
+	^ true
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> handlesMouseDown: anEvent [
+	^ true
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> handlesMouseMove: anEvent [
+	^ true
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> handlesMouseOver: anEvent [
+	^ true
+]
+
 { #category : 'initialization' }
 WebViewCdpMorph >> initialize [
 	super initialize.
@@ -55,10 +81,24 @@ WebViewCdpMorph >> initialize [
 	self borderColor: Color green
 ]
 
+{ #category : 'input' }
+WebViewCdpMorph >> inputPath [
+	^ frameDir, '/input.jsonl'
+]
+
 { #category : 'stepping' }
 WebViewCdpMorph >> intoWorld: aWorld [
 	super intoWorld: aWorld.
+	self comeToFront.
 	self startStepping
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> keyStroke: anEvent [
+	| ch |
+	ch := anEvent keyCharacter.
+	ch ifNotNil: [
+		self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ]
 ]
 
 { #category : 'frames' }
@@ -67,6 +107,34 @@ WebViewCdpMorph >> loadCurrentFrame [
 	^ [ ImageReadWriter formFromFileNamed: self framePath ]
 		on: Error
 		do: [ :e | WebViewProjectPlan log: 'CDP decode error: ', e messageText. nil ]
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> mouseDown: anEvent [
+	"A click on the morph -> forward to the browser as browser-pixel coords.
+	NOTE: the overlay texture always draws ON TOP (v1 limitation), but Morphic
+	hit-testing uses real z-order, so the morph is kept frontmost (see intoWorld:/
+	comeToFront) - otherwise a window overlapping the morph would swallow clicks."
+	| p |
+	self comeToFront.
+	p := self toBrowserCoords: anEvent position.
+	self writeCommand: { 'type' -> 'click'. 'x' -> p x. 'y' -> p y } asDictionary.
+	self takeKeyboardFocus
+]
+
+{ #category : 'event handling' }
+WebViewCdpMorph >> mouseMove: anEvent [
+	"Only stream moves while a button is held (drag), to avoid flooding the input
+	channel on plain hover."
+	anEvent anyButtonPressed ifFalse: [ ^ self ].
+	self writeCommand: (self moveCommandFor: anEvent position)
+]
+
+{ #category : 'input' }
+WebViewCdpMorph >> moveCommandFor: aWorldPoint [
+	| p |
+	p := self toBrowserCoords: aWorldPoint.
+	^ { 'type' -> 'move'. 'x' -> p x. 'y' -> p y } asDictionary
 ]
 
 { #category : 'frames' }
@@ -132,12 +200,44 @@ WebViewCdpMorph >> stepTime [
 	^ 120
 ]
 
+{ #category : 'input' }
+WebViewCdpMorph >> toBrowserCoords: aPoint [
+	"Map a WORLD point to browser pixel coordinates inside the frame."
+	| local be me |
+	local := aPoint - self topLeft.
+	be := self browserExtent.
+	me := self extent.
+	^ (((local x * be x / (me x max: 1)) rounded) max: 0) @ (((local y * be y / (me y max: 1)) rounded) max: 0)
+]
+
 { #category : 'accessing' }
 WebViewCdpMorph >> url: aString [
 	url := aString
 ]
 
+{ #category : 'event handling' }
+WebViewCdpMorph >> wantsKeyboardFocusFor: aSubmorph [
+	^ true
+]
+
 { #category : 'stepping' }
 WebViewCdpMorph >> wantsSteps [
 	^ true
+]
+
+{ #category : 'input' }
+WebViewCdpMorph >> writeCommand: aDictionary [
+	"Append one JSON command line to the input channel. Best-effort, never raises.
+	Uses File>>openForAppend so a burst of events (keystrokes) is queued, not coalesced."
+	[ | line stream |
+	line := String streamContents: [ :s |
+		s nextPut: ${.
+		aDictionary keysAndValuesDo: [ :k :v |
+			s nextPut: $"; nextPutAll: k; nextPutAll: '":'.
+			(v isNumber) ifTrue: [ s nextPutAll: v printString ] ifFalse: [ s nextPut: $"; nextPutAll: v asString; nextPut: $" ].
+			s nextPutAll: ',' ].
+		s nextPutAll: '"_":0}' ].
+	stream := (File named: self inputPath) openForAppend.
+	[ stream nextPutAll: line asByteArray; nextPut: Character lf asInteger ] ensure: [ stream close ] ]
+		on: Error do: [ :e | WebViewProjectPlan log: 'writeCommand error: ', e messageText ]
 ]

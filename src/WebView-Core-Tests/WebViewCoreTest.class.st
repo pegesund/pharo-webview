@@ -6,6 +6,14 @@ Class {
 }
 
 { #category : 'tests' }
+WebViewCoreTest >> testCdpInputWiring [
+	self assert: (WebViewCdpMorph includesSelector: #mouseDown:).
+	self assert: (WebViewCdpMorph includesSelector: #toBrowserCoords:).
+	self assert: (WebViewCdpMorph includesSelector: #writeCommand:).
+	self assert: (WebViewCdpMorph includesSelector: #keyStroke:)
+]
+
+{ #category : 'tests' }
 WebViewCoreTest >> testCdpMorphWiring [
 	self assert: (WebViewCdpMorph includesSelector: #step).
 	self assert: (WebViewCdpMorph includesSelector: #loadCurrentFrame).

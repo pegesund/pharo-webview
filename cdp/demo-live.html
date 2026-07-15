@@ -26,7 +26,10 @@
   const btn = document.getElementById('btn');
   const count = document.getElementById('count');
   let n = 0;
-  btn.onclick = () => { n++; count.textContent = n; };
+  function bump(){ n++; count.textContent = n; }
+  btn.onclick = bump;
+  // any click anywhere counts too — isolates input-reaches-browser from hit-testing
+  window.addEventListener('click', bump);
   function frame(t){
     const d = new Date();
     clock.textContent = d.toLocaleTimeString('en-GB');
