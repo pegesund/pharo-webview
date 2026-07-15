@@ -57,14 +57,34 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
         browser->Reload();
     } else if (type == "stop") {
         browser->StopLoad();
+    } else if (type == "resize") {
+        int w = intOf(d, "w"), h = intOf(d, "h");
+        if (w > 0 && h > 0) client->resize(w, h);
+    } else if (type == "focus") {
+        host->SetFocus(intOf(d, "on", 1) != 0);
     } else if (type == "key") {
+        int code = intOf(d, "code", 0);  // windows virtual key code for special keys
         std::string text = d->HasKey("text") ? d->GetString("text").ToString() : "";
-        if (!text.empty()) {
-            CefKeyEvent k;
+        CefKeyEvent k;
+        k.modifiers = 0;
+        if (code != 0) {
+            // Special key (backspace, enter, arrows, ...): raw down + up.
+            k.windows_key_code = code;
+            k.type = KEYEVENT_RAWKEYDOWN;
+            host->SendKeyEvent(k);
+            if (!text.empty()) {
+                k.type = KEYEVENT_CHAR;
+                k.character = (char16_t)text[0];
+                k.unmodified_character = (char16_t)text[0];
+                host->SendKeyEvent(k);
+            }
+            k.type = KEYEVENT_KEYUP;
+            host->SendKeyEvent(k);
+        } else if (!text.empty()) {
             k.type = KEYEVENT_CHAR;
             k.character = (char16_t)text[0];
             k.unmodified_character = (char16_t)text[0];
-            k.modifiers = 0;
+            k.windows_key_code = (int)text[0];
             host->SendKeyEvent(k);
         }
     }

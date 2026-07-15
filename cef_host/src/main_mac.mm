@@ -63,8 +63,11 @@ int main(int argc, char* argv[]) {
 
         [WvApplication sharedApplication];
 
+        // Allocate the shared buffer at a generous maximum so the browser can be
+        // resized up to it without remapping. The browser starts at width/height.
+        const uint32_t kMaxW = 2560, kMaxH = 1600;
         WvShm shm;
-        if (!shm.open(shm_path, (uint32_t)width, (uint32_t)height)) {
+        if (!shm.open(shm_path, kMaxW, kMaxH)) {
             fprintf(stderr, "[wv_host] failed to open shm at %s\n", shm_path.c_str());
             return 1;
         }

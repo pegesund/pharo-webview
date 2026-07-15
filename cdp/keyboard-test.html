@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Keyboard test</title>
+<style>
+  body{font-family:-apple-system,Helvetica,Arial,sans-serif;margin:0;padding:40px;
+    background:#0b1e3a;color:#eaf2ff}
+  h1{font-size:26px}
+  input{font-size:22px;padding:10px 14px;width:70%;border-radius:8px;border:2px solid #3b82f6;
+    background:#0d2748;color:#fff}
+  #echo{font-size:22px;margin-top:20px;min-height:30px;color:#ffb020}
+  #size{margin-top:16px;opacity:.7}
+</style>
+<h1>Keyboard &amp; resize test</h1>
+<input id="in" placeholder="Type here..." autofocus>
+<div id="echo"></div>
+<div id="size"></div>
+<script>
+  const inp = document.getElementById('in');
+  const echo = document.getElementById('echo');
+  inp.addEventListener('input', () => { echo.textContent = 'You typed: ' + inp.value; });
+  function showSize(){ document.getElementById('size').textContent =
+    'viewport: ' + window.innerWidth + ' x ' + window.innerHeight; }
+  window.addEventListener('resize', showSize); showSize();
+  inp.focus();
+</script>

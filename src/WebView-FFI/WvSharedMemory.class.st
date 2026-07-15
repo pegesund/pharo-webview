@@ -12,6 +12,17 @@ Class {
 }
 
 { #category : 'instance creation' }
+WvSharedMemory class >> openPath: aPath [
+	"Map the whole shared-memory file (its size is the host max capacity)."
+	| ref m |
+	ref := aPath asFileReference.
+	ref exists ifFalse: [ ^ nil ].
+	m := self new.
+	(m openPath: aPath size: ref size) ifFalse: [ ^ nil ].
+	^ m
+]
+
+{ #category : 'instance creation' }
 WvSharedMemory class >> openPath: aPath maxWidth: w maxHeight: h [
 	| m |
 	m := self new.

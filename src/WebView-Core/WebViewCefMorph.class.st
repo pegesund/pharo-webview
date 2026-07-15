@@ -61,8 +61,14 @@ WebViewCefMorph >> ensureShm [
 	(shm notNil and: [ shm isValid ]) ifTrue: [ ^ true ].
 	shm ifNotNil: [ shm close. shm := nil ].
 	shmPath asFileReference exists ifFalse: [ ^ false ].
-	shm := WvSharedMemory openPath: shmPath maxWidth: 800 maxHeight: 600.
+	shm := WvSharedMemory openPath: shmPath.
 	^ shm notNil and: [ shm isValid ]
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> focusChanged: aBoolean [
+	"Tell CEF whether this webview has keyboard focus."
+	self writeCommand: { 'type' -> 'focus'. 'on' -> (aBoolean ifTrue: [1] ifFalse: [0]) } asDictionary
 ]
 
 { #category : 'private' }
@@ -115,9 +121,31 @@ WebViewCefMorph >> intoWorld: aWorld [
 
 { #category : 'event handling' }
 WebViewCefMorph >> keyStroke: anEvent [
-	| ch |
+	"Route keystrokes to CEF. Printable chars go as text; control/navigation keys
+	go with a Windows virtual key code so CEF handles them (backspace, enter, arrows...)."
+	| kv ch code |
+	kv := anEvent keyValue.
 	ch := anEvent keyCharacter.
-	ch ifNotNil: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ]
+	code := 0.
+	kv = 8 ifTrue: [ code := 8 ].
+	kv = 9 ifTrue: [ code := 9 ].
+	(kv = 13 or: [ kv = 3 ]) ifTrue: [ code := 13 ].
+	kv = 27 ifTrue: [ code := 27 ].
+	kv = 127 ifTrue: [ code := 46 ].
+	kv = 28 ifTrue: [ code := 37 ].
+	kv = 29 ifTrue: [ code := 39 ].
+	kv = 30 ifTrue: [ code := 38 ].
+	kv = 31 ifTrue: [ code := 40 ].
+	code ~= 0
+		ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ]
+		ifFalse: [ (ch notNil and: [ ch asInteger between: 32 and: 126 ])
+			ifTrue: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ]
+]
+
+{ #category : 'event handling' }
+WebViewCefMorph >> keyboardFocusChange: aBoolean [
+	super keyboardFocusChange: aBoolean.
+	ownsHost == true ifTrue: [ self focusChanged: aBoolean ]
 ]
 
 { #category : 'lifecycle' }
@@ -137,15 +165,34 @@ WebViewCefMorph >> killHost [
 
 { #category : 'lifecycle' }
 WebViewCefMorph >> launchHost [
-	"Start our own cef_host process (background), writing its PID to pidPath.
-	Idempotent: only launches once per morph."
-	| cmd |
+	| cmd scale w h |
 	ownsHost ifTrue: [ ^ self ].
 	ownsHost := true.
 	self cleanupFiles.
-	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" 800 600 "', shmPath, '" "', inputPath, '" >/tmp/wv-cef-', id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
+	scale := OSWorldRenderer canvasScaleFactor.
+	w := ((self width * scale) rounded max: 200) min: 2560.
+	h := ((self height * scale) rounded max: 200) min: 1600.
+	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString, ' "', shmPath, '" "', inputPath, '" >/tmp/wv-cef-', id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
 	LibC runCommand: cmd.
-	WebViewProjectPlan log: 'launched cef_host #', id printString
+	WebViewProjectPlan log: 'launched cef_host #', id printString, ' at ', w printString, 'x', h printString
+]
+
+{ #category : 'geometry' }
+WebViewCefMorph >> maybeResize [
+	"Send a resize only when the target browser-pixel size actually changes (debounced
+	via a per-id last-sent cache), and never for tiny transient sizes."
+	| scale dw dh target sent |
+	(shm notNil and: [ shm isValid ]) ifFalse: [ ^ self ].
+	scale := OSWorldRenderer canvasScaleFactor.
+	dw := (self width * scale) rounded.
+	dh := (self height * scale) rounded.
+	(dw < 50 or: [ dh < 50 ]) ifTrue: [ ^ self ].
+	target := dw @ dh.
+	(target = (shm width @ shm height)) ifTrue: [ ^ self ].
+	sent := (Smalltalk at: #WvResizeSent ifAbsentPut: [ IdentityDictionary new ]) at: id ifAbsent: [ nil ].
+	target = sent ifTrue: [ ^ self ].
+	(Smalltalk at: #WvResizeSent) at: id put: target.
+	self writeCommand: { 'type' -> 'resize'. 'w' -> dw. 'h' -> dh } asDictionary
 ]
 
 { #category : 'event handling' }
@@ -179,6 +226,15 @@ WebViewCefMorph >> pushFrame [
 		dirtyRects: nil
 ]
 
+{ #category : 'geometry' }
+WebViewCefMorph >> sendResize [
+	| scale w h |
+	scale := OSWorldRenderer canvasScaleFactor.
+	w := (self width * scale) rounded max: 1.
+	h := (self height * scale) rounded max: 1.
+	self writeCommand: { 'type' -> 'resize'. 'w' -> w. 'h' -> h } asDictionary
+]
+
 { #category : 'accessing' }
 WebViewCefMorph >> shmPath: aString [ ^ shmPath := aString
 ]
@@ -192,9 +248,10 @@ WebViewCefMorph >> step [
 	[
 	self ensureShm ifFalse: [ ^ self ].
 	shm alive ifFalse: [ ^ self ].
+	self maybeResize.
 	shm seq = lastSeq ifTrue: [ ^ self ].
 	lastSeq := shm seq.
-	(self extent = (shm width @ shm height)) ifFalse: [ self extent: shm width @ shm height ].
+	(self extent = (shm width @ shm height)) ifFalse: [ ].
 	self pushFrame.
 	self changed ]
 		on: Error
