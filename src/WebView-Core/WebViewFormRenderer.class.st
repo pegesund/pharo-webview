@@ -110,12 +110,13 @@ WebViewFormRenderer >> destroy [
 
 { #category : 'compositing' }
 WebViewFormRenderer >> drawOverlayOccluded: entry [
-	"Assumes mutex held + entry validated. Copy the browser texture to its device
-	bounds, minus the rectangles of any morphs in front of it (occlusion clipping)."
+	"Draw this browser overlay clipped away from the device rects of morphs in front
+	of it in z-order (real occlusion). Bounds + visible rects are integer-aligned and
+	the source rect uses consistent corner rounding, so there is no sub-pixel seam."
 	| tex texExtent bounds occluders visible sx sy |
 	tex := entry at: #texture.
 	texExtent := entry at: #textureExtent.
-	bounds := entry at: #bounds.
+	bounds := ((entry at: #bounds) origin rounded) corner: ((entry at: #bounds) corner rounded).
 	occluders := self occludersFor: (entry at: #key) target: bounds.
 	visible := OrderedCollection with: bounds.
 	occluders do: [ :occ | | next |
@@ -125,9 +126,10 @@ WebViewFormRenderer >> drawOverlayOccluded: entry [
 	sx := texExtent x / (bounds width max: 1).
 	sy := texExtent y / (bounds height max: 1).
 	visible do: [ :v |
-		v area > 0 ifTrue: [ | src |
-			src := (((v origin - bounds origin) * (sx @ sy)) rounded)
-				extent: ((v extent * (sx @ sy)) rounded).
+		v area > 0 ifTrue: [ | src so sc |
+			so := ((v origin - bounds origin) * (sx @ sy)) rounded.
+			sc := ((v corner - bounds origin) * (sx @ sy)) rounded.
+			src := so corner: sc.
 			renderer copy: tex srcRect: src asSDLRect dstRect: v asSDLRect.
 			overlayCopyCount := (overlayCopyCount ifNil: [ 0 ]) + 1 ] ]
 ]
@@ -154,7 +156,9 @@ WebViewFormRenderer >> initialize [
 { #category : 'compositing' }
 WebViewFormRenderer >> occludersFor: morph target: deviceBounds [
 	"Device rects of morphs in front of `morph` at any ancestor level whose device
-	bounds overlap deviceBounds. Device coords = world coords * canvasScaleFactor."
+	bounds overlap deviceBounds. Occluders are rounded OUTWARD (floor origin, ceil
+	corner) so they fully cover the morph with no sub-pixel seam the browser texture
+	could bleed through."
 	| result scale cur |
 	result := OrderedCollection new.
 	scale := OSWorldRenderer canvasScaleFactor.
@@ -168,8 +172,7 @@ WebViewFormRenderer >> occludersFor: morph target: deviceBounds [
 			1 to: idx - 1 do: [ :i | | sm dr |
 				sm := sibs at: i.
 				sm visible ifTrue: [
-					dr := (sm fullBounds origin * scale) rounded
-						extent: (sm fullBounds extent * scale) rounded.
+					dr := ((sm fullBounds origin * scale) floor) corner: ((sm fullBounds corner * scale) ceiling).
 					(dr intersects: deviceBounds) ifTrue: [ result add: dr ] ] ] ].
 		cur := owner ].
 	^ result

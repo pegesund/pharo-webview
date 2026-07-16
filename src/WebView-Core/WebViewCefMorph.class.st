@@ -581,7 +581,14 @@ WebViewCefMorph >> step [
 	noSkip := seq = (lastSeq + 1).
 	lastSeq := seq.
 	self pushFrameDirty: noSkip.
-	self changed ]
+	"Present the new browser frame directly instead of damaging our Morphic bounds.
+	 self changed would re-render the world Form around us every frame, and at the
+	 clip edge against opaque morphs in front (real z-order) that lost a 1px column,
+	 leaving our white backing as a seam through their content. Presenting the overlay
+	 (same world texture + fresh browser pixels) avoids re-rendering the Form at all."
+	self formRendererOrNil
+		ifNotNil: [ :r | r useDeferredUpdates ]
+		ifNil: [ self changed ] ]
 		on: Error
 		do: [ :e | self stopStepping. WebViewProjectPlan log: 'CefMorph step ERROR: ', e printString ]
 ]
