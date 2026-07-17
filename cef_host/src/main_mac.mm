@@ -1,6 +1,6 @@
 // Browser-process entry point (macOS). Runs CEF windowless/OSR and streams
 // frames into shared memory. Args:
-//   cef_host <url> <width> <height> <shm_path> <control_path>
+//   cef_host <url> <width> <height> <shm_path> <control_path> [cache_path]
 #import <Cocoa/Cocoa.h>
 
 #include "include/cef_app.h"
@@ -49,6 +49,9 @@ int main(int argc, char* argv[]) {
         int height = argc > 3 ? std::atoi(argv[3]) : 600;
         std::string shm_path = argc > 4 ? argv[4] : "/tmp/wv-cef.shm";
         std::string control_path = argc > 5 ? argv[5] : "/tmp/wv-cef.input";
+        // Optional 6th arg: a persistent cache/cookie dir. When the caller supplies
+        // a stable per-slot path, cookies (incl. cookie-consent) survive restarts.
+        std::string cache_arg = argc > 6 ? std::string(argv[6]) : std::string();
 
         CefMainArgs main_args(argc, argv);
 
@@ -80,6 +83,7 @@ int main(int argc, char* argv[]) {
         settings.no_sandbox = true;
         settings.external_message_pump = false;
         settings.multi_threaded_message_loop = false;
+        settings.persist_session_cookies = true;
 
         std::string base = bundlePath();
         std::string framework = base + "/Contents/Frameworks/Chromium Embedded Framework.framework";
@@ -91,9 +95,11 @@ int main(int argc, char* argv[]) {
         // by convention from the main bundle. Setting these explicitly was
         // preventing the helper from being launched (subprocesses fell back to
         // re-execing the main binary, which crash-looped).
-        // Unique cache dir per instance -> no singleton-lock clash between
-        // multiple simultaneous browsers/hosts.
-        std::string cache = shm_path + ".cache";
+        // A caller-supplied persistent cache dir (stable per browser "slot") lets
+        // cookies persist across restarts. Falls back to a unique per-instance dir
+        // when none is given, avoiding singleton-lock clashes between simultaneous
+        // browsers (each live browser gets a distinct path either way).
+        std::string cache = cache_arg.empty() ? (shm_path + ".cache") : cache_arg;
         CefString(&settings.root_cache_path) = cache;
 
         if (!CefInitialize(main_args, settings, app.get(), nullptr)) {

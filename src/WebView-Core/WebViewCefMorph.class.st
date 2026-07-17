@@ -34,6 +34,25 @@ WebViewCefMorph class >> binaryPath: aString [
 ]
 
 { #category : 'config' }
+WebViewCefMorph class >> cacheDir [
+	"Persistent CEF cache/cookie root (macOS). Survives restarts so cookie-consent sticks."
+	^ FileLocator home / 'Library' / 'Application Support' / 'pharo-webview' / 'cache'
+]
+
+{ #category : 'config' }
+WebViewCefMorph class >> claimCacheSlot [
+	"Lowest slot index not held by a currently-live browser. A lone browser reuses slot 0
+	 across sessions, so its persistent cookie cache is reused and consent banners stop."
+	| used i |
+	used := ((self allInstances
+		select: [ :m | m world notNil and: [ (m valueOfProperty: #wvCacheSlot ifAbsent: [ nil ]) notNil ] ])
+		collect: [ :m | m valueOfProperty: #wvCacheSlot ]) asSet.
+	i := 0.
+	[ used includes: i ] whileTrue: [ i := i + 1 ].
+	^ i
+]
+
+{ #category : 'config' }
 WebViewCefMorph class >> defaultBinaryPath [
 	^ '/Users/pegesund/dev/pharo-webview/cef_host/build/cef_host.app/Contents/MacOS/cef_host'
 ]
@@ -64,6 +83,17 @@ WebViewCefMorph >> asForm [
 { #category : 'input' }
 WebViewCefMorph >> browserExtent [
 	^ (shm notNil and: [ shm isValid ]) ifTrue: [ shm width @ shm height ] ifFalse: [ self extent ]
+]
+
+{ #category : 'lifecycle' }
+WebViewCefMorph >> cachePath [
+	"Persistent per-slot cache dir, claimed once per host launch."
+	| slot dir |
+	slot := self valueOfProperty: #wvCacheSlot ifAbsent: [ nil ].
+	slot isNil ifTrue: [ slot := WebViewCefMorph claimCacheSlot. self setProperty: #wvCacheSlot toValue: slot ].
+	dir := WebViewCefMorph cacheDir / ('slot-', slot printString).
+	[ dir ensureCreateDirectory ] on: Error do: [ :e | ].
+	^ dir fullName
 ]
 
 { #category : 'lifecycle' }
@@ -288,7 +318,7 @@ WebViewCefMorph >> jsonStringOn: aStream put: aString [
 	aStream nextPut: $"
 ]
 
-{ #category : 'event handling' }
+{ #category : 'events' }
 WebViewCefMorph >> keyDown: anEvent [
 	"Navigation keys (arrows, page up/down, home, end) AND, on macOS/SDL, editing keys
 	 (backspace, tab, enter, escape, delete) + non-ASCII printable chars (æøå) arrive here
@@ -298,19 +328,13 @@ WebViewCefMorph >> keyDown: anEvent [
 		| kv code ch cv |
 		kv := anEvent keyValue.
 		code := 0.
-		kv = 30 ifTrue: [ code := 38 ].
-		kv = 31 ifTrue: [ code := 40 ].
-		kv = 28 ifTrue: [ code := 37 ].
-		kv = 29 ifTrue: [ code := 39 ].
-		kv = 11 ifTrue: [ code := 33 ].
-		kv = 12 ifTrue: [ code := 34 ].
-		kv = 1 ifTrue: [ code := 36 ].
-		kv = 4 ifTrue: [ code := 35 ].
-		kv = 8 ifTrue: [ code := 8 ].
-		kv = 9 ifTrue: [ code := 9 ].
+		kv = 30 ifTrue: [ code := 38 ]. kv = 31 ifTrue: [ code := 40 ].
+		kv = 28 ifTrue: [ code := 37 ]. kv = 29 ifTrue: [ code := 39 ].
+		kv = 11 ifTrue: [ code := 33 ]. kv = 12 ifTrue: [ code := 34 ].
+		kv = 1 ifTrue: [ code := 36 ]. kv = 4 ifTrue: [ code := 35 ].
+		kv = 8 ifTrue: [ code := 8 ]. kv = 9 ifTrue: [ code := 9 ].
 		(kv = 13 or: [ kv = 3 ]) ifTrue: [ code := 13 ].
-		kv = 27 ifTrue: [ code := 27 ].
-		kv = 127 ifTrue: [ code := 46 ].
+		kv = 27 ifTrue: [ code := 27 ]. kv = 127 ifTrue: [ code := 46 ].
 		code ~= 0
 			ifTrue: [
 				self setProperty: #leseKeyDownCode toValue: code.
@@ -325,11 +349,11 @@ WebViewCefMorph >> keyDown: anEvent [
 		label: 'keyDown'
 ]
 
-{ #category : 'event handling' }
+{ #category : 'events' }
 WebViewCefMorph >> keyStroke: anEvent [
-	"Editing keys (backspace, tab, enter, escape, delete) + printable text. ASCII always
-	 goes here; non-ASCII (æøå) normally arrives via keyDown: on macOS, but on platforms
-	 where it also reaches keyStroke: we dedupe against the code point keyDown: recorded."
+	"Editing keys + printable text. ASCII always goes here. Editing keys and non-ASCII
+	 (æøå) normally arrive via keyDown: on macOS; on platforms where they also reach
+	 keyStroke: we dedupe against what keyDown: recorded so nothing is sent twice."
 	self withErrorLog: [
 		| ch cv code |
 		ch := anEvent keyCharacter ifNil: [ ^ self ].
@@ -349,7 +373,7 @@ WebViewCefMorph >> keyStroke: anEvent [
 					ifFalse: [ (cv >= 128 and: [ cv < 65535 ]) ifTrue: [
 						(self valueOfProperty: #leseKeyDownText ifAbsent: [ nil ]) = cv
 							ifTrue: [ self setProperty: #leseKeyDownText toValue: nil ]
-							ifFalse: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ] ]
+							ifFalse: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ] ] ]
 		label: 'keyStroke'
 ]
 
@@ -383,7 +407,7 @@ WebViewCefMorph >> launchHost [
 	scale := OSWorldRenderer canvasScaleFactor.
 	w := ((self width * scale) rounded max: 200) min: 2560.
 	h := ((self height * scale) rounded max: 200) min: 1600.
-	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString, ' "', shmPath, '" "', inputPath, '" >/tmp/wv-cef-', id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
+	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString, (' "', shmPath, '" "', inputPath, '" "', self cachePath, '" >/tmp/wv-cef-'), id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
 	LibC runCommand: cmd.
 	WebViewProjectPlan log: 'launched cef_host #', id printString, ' at ', w printString, 'x', h printString
 ]
