@@ -148,22 +148,44 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
             // keystroke self-contained so it resets the input pipeline — otherwise
             // the character right after a special key (whose native KEYUP we can't
             // send in single-process) gets absorbed as that key's missing CHAR.
-            int kc = (int)(unsigned char)text[0];
-            int vk = kc;
-            if (vk >= 'a' && vk <= 'z') vk -= 32;  // vkey uses uppercase
+            // Decode the FIRST UTF-8 code point of `text` (the Pharo side sends the
+            // character UTF-8 encoded). The previous code used (char16_t)text[0],
+            // which sign-extended the leading byte of a multi-byte char (e.g. 'ø'
+            // 0xC3 0xB8 -> 0xFFC3) and dropped the rest, so non-ASCII input (æøå and
+            // every accented letter) never reached the page. Decode properly instead.
+            unsigned char b0 = (unsigned char)text[0];
+            unsigned int cp; size_t nb;
+            if (b0 < 0x80) { cp = b0; nb = 1; }
+            else if ((b0 & 0xE0) == 0xC0 && text.size() >= 2) {
+                cp = ((b0 & 0x1F) << 6) | ((unsigned char)text[1] & 0x3F); nb = 2;
+            } else if ((b0 & 0xF0) == 0xE0 && text.size() >= 3) {
+                cp = ((b0 & 0x0F) << 12) | (((unsigned char)text[1] & 0x3F) << 6)
+                     | ((unsigned char)text[2] & 0x3F); nb = 3;
+            } else if ((b0 & 0xF8) == 0xF0 && text.size() >= 4) {
+                cp = ((b0 & 0x07) << 18) | (((unsigned char)text[1] & 0x3F) << 12)
+                     | (((unsigned char)text[2] & 0x3F) << 6)
+                     | ((unsigned char)text[3] & 0x3F); nb = 4;
+            } else { cp = b0; nb = 1; }
+            (void)nb;
+            // vkey uses an uppercase ASCII code where one exists; 0 for non-ASCII.
+            int vk = 0;
+            if (cp >= 'a' && cp <= 'z') vk = (int)cp - 32;
+            else if (cp < 0x80) vk = (int)cp;
+            // char16_t holds the BMP directly; anything above is rare for typed input.
+            char16_t ch16 = (cp <= 0xFFFF) ? (char16_t)cp : (char16_t)0xFFFD;
             CefKeyEvent kd;
             kd.modifiers = 0;
             kd.is_system_key = false;
             kd.windows_key_code = vk;
-            kd.native_key_code = macNativeForChar(text[0]);
+            kd.native_key_code = (cp < 0x80) ? macNativeForChar((char)cp) : 0;
             kd.type = KEYEVENT_RAWKEYDOWN;
             host->SendKeyEvent(kd);
             CefKeyEvent kc2;
             kc2.modifiers = 0;
             kc2.is_system_key = false;
             kc2.type = KEYEVENT_CHAR;
-            kc2.character = (char16_t)text[0];
-            kc2.unmodified_character = (char16_t)text[0];
+            kc2.character = ch16;
+            kc2.unmodified_character = ch16;
             kc2.windows_key_code = vk;
             host->SendKeyEvent(kc2);
         }

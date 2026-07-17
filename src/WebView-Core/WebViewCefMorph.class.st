@@ -290,11 +290,12 @@ WebViewCefMorph >> jsonStringOn: aStream put: aString [
 
 { #category : 'event handling' }
 WebViewCefMorph >> keyDown: anEvent [
-	"Navigation keys (arrows, page up/down, home, end) arrive here, not in keyStroke:.
-	Forward as a CEF key event so the page gets a real keydown AND the default action
-	(scrolling / caret movement) fires."
+	"Navigation keys (arrows, page up/down, home, end) AND, on macOS/SDL, editing keys
+	 (backspace, tab, enter, escape, delete) + non-ASCII printable chars (æøå) arrive here
+	 rather than in keyStroke:. Forward them, recording what was sent so a following
+	 keyStroke: (platforms where both fire) can dedupe instead of double-sending."
 	self withErrorLog: [
-		| kv code |
+		| kv code ch cv |
 		kv := anEvent keyValue.
 		code := 0.
 		kv = 30 ifTrue: [ code := 38 ].
@@ -305,13 +306,30 @@ WebViewCefMorph >> keyDown: anEvent [
 		kv = 12 ifTrue: [ code := 34 ].
 		kv = 1 ifTrue: [ code := 36 ].
 		kv = 4 ifTrue: [ code := 35 ].
-		code ~= 0 ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ] ]
+		kv = 8 ifTrue: [ code := 8 ].
+		kv = 9 ifTrue: [ code := 9 ].
+		(kv = 13 or: [ kv = 3 ]) ifTrue: [ code := 13 ].
+		kv = 27 ifTrue: [ code := 27 ].
+		kv = 127 ifTrue: [ code := 46 ].
+		code ~= 0
+			ifTrue: [
+				self setProperty: #leseKeyDownCode toValue: code.
+				self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ]
+			ifFalse: [
+				ch := anEvent keyCharacter.
+				ch ifNotNil: [
+					cv := ch asInteger.
+					(cv >= 128 and: [ cv < 65535 ]) ifTrue: [
+						self setProperty: #leseKeyDownText toValue: cv.
+						self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ] ]
 		label: 'keyDown'
 ]
 
 { #category : 'event handling' }
 WebViewCefMorph >> keyStroke: anEvent [
-	"Editing keys (backspace, tab, enter, escape, delete) + printable text."
+	"Editing keys (backspace, tab, enter, escape, delete) + printable text. ASCII always
+	 goes here; non-ASCII (æøå) normally arrives via keyDown: on macOS, but on platforms
+	 where it also reaches keyStroke: we dedupe against the code point keyDown: recorded."
 	self withErrorLog: [
 		| ch cv code |
 		ch := anEvent keyCharacter ifNil: [ ^ self ].
@@ -321,8 +339,17 @@ WebViewCefMorph >> keyStroke: anEvent [
 		(cv = 13 or: [ cv = 10 or: [ cv = 3 ] ]) ifTrue: [ code := 13 ].
 		cv = 27 ifTrue: [ code := 27 ]. cv = 127 ifTrue: [ code := 46 ].
 		code ~= 0
-			ifTrue: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ]
-			ifFalse: [ (cv between: 32 and: 126) ifTrue: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ]
+			ifTrue: [
+				(self valueOfProperty: #leseKeyDownCode ifAbsent: [ nil ]) = code
+					ifTrue: [ self setProperty: #leseKeyDownCode toValue: nil ]
+					ifFalse: [ self writeCommand: { 'type' -> 'key'. 'code' -> code } asDictionary ] ]
+			ifFalse: [
+				(cv between: 32 and: 126)
+					ifTrue: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ]
+					ifFalse: [ (cv >= 128 and: [ cv < 65535 ]) ifTrue: [
+						(self valueOfProperty: #leseKeyDownText ifAbsent: [ nil ]) = cv
+							ifTrue: [ self setProperty: #leseKeyDownText toValue: nil ]
+							ifFalse: [ self writeCommand: { 'type' -> 'key'. 'text' -> (String with: ch) } asDictionary ] ] ] ]
 		label: 'keyStroke'
 ]
 
