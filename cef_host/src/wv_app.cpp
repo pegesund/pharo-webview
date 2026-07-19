@@ -1,9 +1,11 @@
 #include "wv_app.h"
 #include "wv_control.h"
+#include "wv_scheme.h"
 
 #include "include/cef_browser.h"
 #include "include/cef_frame.h"
 #include "include/cef_parser.h"
+#include "include/cef_scheme.h"
 #include "include/cef_v8.h"
 #include "include/wrapper/cef_helpers.h"
 
@@ -44,8 +46,19 @@ void WvApp::OnBeforeCommandLineProcessing(const CefString&,
     command_line->AppendSwitchWithValue("password-store", "basic");
 }
 
+void WvApp::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) {
+    // "lese://" is a real, secure, same-origin scheme so the pdf.js viewer's ES
+    // modules + fetch() work while being served straight off disk (no TCP server).
+    registrar->AddCustomScheme(
+        "lese",
+        CEF_SCHEME_OPTION_STANDARD | CEF_SCHEME_OPTION_SECURE |
+            CEF_SCHEME_OPTION_CORS_ENABLED | CEF_SCHEME_OPTION_FETCH_ENABLED);
+}
+
 void WvApp::OnContextInitialized() {
     CEF_REQUIRE_UI_THREAD();
+
+    WvRegisterLeseScheme();
 
     client_ = new WvClient(shm_, width_, height_);
     if (!control_path_.empty()) {

@@ -28,6 +28,8 @@ public:
     void OnBeforeCommandLineProcessing(
         const CefString& process_type,
         CefRefPtr<CefCommandLine> command_line) override;
+    void OnRegisterCustomSchemes(
+        CefRawPtr<CefSchemeRegistrar> registrar) override;
 
     // CefBrowserProcessHandler
     void OnContextInitialized() override;

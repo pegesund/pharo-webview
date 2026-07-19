@@ -24,6 +24,7 @@ set(WV_SOURCES
   src/wv_client.cpp
   src/wv_app.cpp
   src/wv_control.cpp
+  src/wv_scheme.cpp
 )
 
 # ---------------------------------------------------------------------------
