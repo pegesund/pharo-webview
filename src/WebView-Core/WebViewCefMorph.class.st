@@ -407,7 +407,18 @@ WebViewCefMorph >> launchHost [
 	scale := OSWorldRenderer canvasScaleFactor.
 	w := ((self width * scale) rounded max: 200) min: 2560.
 	h := ((self height * scale) rounded max: 200) min: 1600.
-	cmd := '"', WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString, (' "', shmPath, '" "', inputPath, '" "', self cachePath, '" >/tmp/wv-cef-'), id printString, '.log 2>&1 & echo $! > "', pidPath, '"'.
+	"Launch cef_host through a perl wrapper that CLOSES all inherited file
+	 descriptors >= 3 before exec. Otherwise the child (via LibC runCommand -> sh)
+	 inherits every open fd of the image, INCLUDING any server listen/accept socket
+	 (e.g. the SisServer/MCP port). A long-lived cef_host then keeps that socket
+	 alive -- wedging the live server if it grabs an active connection, and holding
+	 the port after the image exits so the next boot fails with 'Address already in
+	 use'. Closing 3..1023 first fixes both. cef_host takes all its inputs by path,
+	 so it needs nothing above stdio."
+	cmd := '/usr/bin/perl -MPOSIX -e ''for (3..1023) { POSIX::close($_) }; exec @ARGV or die $!'' -- "',
+		WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString,
+		' "', shmPath, '" "', inputPath, '" "', self cachePath, '" >/tmp/wv-cef-', id printString,
+		'.log 2>&1 & echo $! > "', pidPath, '"'.
 	LibC runCommand: cmd.
 	WebViewProjectPlan log: 'launched cef_host #', id printString, ' at ', w printString, 'x', h printString
 ]
