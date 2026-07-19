@@ -446,11 +446,12 @@ WebViewCefMorph >> maybeResize [
 	self writeCommand: { 'type' -> 'resize'. 'w' -> dw. 'h' -> dh } asDictionary
 ]
 
-{ #category : 'event handling' }
+{ #category : 'events' }
 WebViewCefMorph >> mouseDown: anEvent [
 	self withErrorLog: [
 		| p |
 		self comeToFront.
+		self raiseStayOnTopSiblings.
 		p := self toBrowserCoords: anEvent position.
 		self writeCommand: { 'type' -> 'down'. 'x' -> p x. 'y' -> p y } asDictionary.
 		self takeKeyboardFocus ]
@@ -591,6 +592,16 @@ WebViewCefMorph >> pushFrameDirty: useDirty [
 		pitch: shm width * 4
 		bounds: ((self bounds origin * scale) rounded extent: (self extent * scale) rounded)
 		dirtyRects: rects
+]
+
+{ #category : 'layering' }
+WebViewCefMorph >> raiseStayOnTopSiblings [
+	"Keep transient overlays (e.g. a search window) above this webview after it comes to
+	 front. Any world-level morph flagged #wvStayOnTop is re-raised above us. Generic hook;
+	 the client sets the flag."
+	self world ifNotNil: [ :w |
+		(w submorphs select: [ :m | (m ~~ self) and: [ m hasProperty: #wvStayOnTop ] ])
+			do: [ :m | m comeToFront ] ]
 ]
 
 { #category : 'screenshot' }
