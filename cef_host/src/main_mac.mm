@@ -107,6 +107,11 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
+        // Run as an accessory agent: no Dock icon, no menu-bar presence. cef_host is a
+        // windowless offscreen renderer driven by the Pharo image, not a user-facing app.
+        // Set after CefInitialize so CEF's own NSApp setup doesn't override it.
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+
         fprintf(stderr, "[wv_host] initialised: %s %dx%d shm=%s\n",
                 url.c_str(), width, height, shm_path.c_str());
         fflush(stderr);
