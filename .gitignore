@@ -2,3 +2,7 @@
 PharoDebug.log
 cef_host/third_party/
 cef_host/build/
+
+# native crash dumps
+crash.dmp
+*.dmp
