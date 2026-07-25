@@ -93,6 +93,16 @@ void dispatchLine(CefRefPtr<WvClient> client, std::string line) {
     } else if (type == "resize") {
         int w = intOf(d, "w"), h = intOf(d, "h");
         if (w > 0 && h > 0) client->resize(w, h);
+    } else if (type == "zoom") {
+        // Content zoom (text and everything). Chromium zoom levels: 0 = 100%,
+        // each unit is a ~20% step (scale = 1.2^level). Sent as double or int.
+        CefRefPtr<CefValue> v = d->GetValue("level");
+        double level = 0.0;
+        if (v) {
+            if (v->GetType() == VTYPE_DOUBLE) level = v->GetDouble();
+            else if (v->GetType() == VTYPE_INT) level = (double)v->GetInt();
+        }
+        host->SetZoomLevel(level);
     } else if (type == "focus") {
         host->SetFocus(intOf(d, "on", 1) != 0);
     } else if (type == "key") {
