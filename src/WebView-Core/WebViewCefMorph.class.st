@@ -41,21 +41,45 @@ WebViewCefMorph class >> cacheDir [
 
 { #category : 'config' }
 WebViewCefMorph class >> claimCacheSlot [
-	"Lowest slot index not held by a currently-live host. A slot is a distinct CEF
-	 root_cache_path; two live hosts sharing one collide on Chromium's profile SingletonLock
-	 and the second falls into the normal-browser-startup path (startup_browser_creator: 'No
-	 browser window found for startup') instead of rendering offscreen. Liveness is ownsHost
-	 (true from launchHost until killHost) -- crucially this also covers Bloc-hosted webviews,
-	 which have no Morphic world; the old `m world notNil` test excluded them, so every Bloc
-	 browser grabbed slot 0 and opening a second one collided. A lone browser still reuses
+	"Lowest slot index that is free BOTH in-image and on disk. A slot is a distinct CEF
+	 root_cache_path; two hosts sharing one collide on Chromium's profile singleton, and the
+	 second launch gets FORWARDED to the first, which then opens a real chrome window with
+	 restored tabs (startup_browser_creator: 'No browser window found for startup').
+	 In-image: a slot is held by an instance with ownsHost=true (covers the launch window
+	 before the OS lock exists; works for Bloc-hosted webviews too, which have no Morphic
+	 world). On disk: held if the slot dir's SingletonLock symlink (target 'host-PID') points
+	 at a LIVE process -- this catches hosts whose image-side objects are gone (window closed
+	 then GC'd, image died, crash) but whose cef_host still runs. A lone browser still reuses
 	 slot 0 across sessions, so its persistent cookie cache sticks and consent banners stop."
-	| used i |
+	| used i busy |
 	used := ((self allInstances
 		select: [ :m | ((m instVarNamed: 'ownsHost') = true) and: [ (m valueOfProperty: #wvCacheSlot ifAbsent: [ nil ]) notNil ] ])
 		collect: [ :m | m valueOfProperty: #wvCacheSlot ]) asSet.
+	busy := [ :slot | | lock rc |
+		lock := (self cacheDir / ('slot-' , slot printString) / 'SingletonLock') fullName.
+		rc := [ LibC uniqueInstance runCommand: 'p=$(readlink "' , lock , '" 2>/dev/null) && ps -p "${p##*-}" >/dev/null 2>&1' ]
+			on: Error do: [ :e | 1 ].
+		rc = 0 ].
 	i := 0.
-	[ used includes: i ] whileTrue: [ i := i + 1 ].
+	[ (used includes: i) or: [ busy value: i ] ] whileTrue: [ i := i + 1 ].
 	^ i
+]
+
+{ #category : 'class initialization' }
+WebViewCefMorph class >> initialize [
+	"Register for image startup (see startUp:)."
+	SessionManager default registerSystemClassNamed: self name
+]
+
+{ #category : 'system startup' }
+WebViewCefMorph class >> startUp: resuming [
+	"After an image restore no cef_host from the previous session is ours (startup cleanup
+	 even pkills orphans), but snapshotted instances still carry ownsHost=true. Clear it on
+	 all, or claimCacheSlot counts their slots as taken forever (and killHost could later
+	 kill an unrelated pid reused by the OS)."
+	resuming ifTrue: [
+		self allInstances do: [ :m |
+			[ m instVarNamed: 'ownsHost' put: false ] on: Error do: [ :e | ] ] ]
 ]
 
 { #category : 'config' }
