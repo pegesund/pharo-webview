@@ -44,6 +44,27 @@ void WvApp::OnBeforeCommandLineProcessing(const CefString&,
     // avoids the OS Keychain entirely.
     command_line->AppendSwitch("use-mock-keychain");
     command_line->AppendSwitchWithValue("password-store", "basic");
+    // KNOWN LIMITATION (OSR + single-process, reproduced on BOTH CEF 138 and CEF 150):
+    // typing into a textarea enhanced by heavy per-keystroke JavaScript (e.g.
+    // MediaWiki's wikiEditor / CodeMirror syntax highlighter) reliably aborts the
+    // process with EXC_BREAKPOINT -- a renderer CHECK on the threaded compositor path
+    // during a JS-driven re-render (the crashed stack shows v8 internals under the
+    // paint/raster code). Findings from an exhaustive bisect:
+    //   * --disable-javascript makes the same typing stable; plain inputs, textareas
+    //     and search boxes never crash. So ordinary form input works -- only rich
+    //     in-page editors trip it.
+    //   * single-process is REQUIRED: OSR OnPaint produces no frames without it (the
+    //     GPU/viz process cannot init on headless macOS -- "GPU process isn't usable.
+    //     Goodbye", launch error 1003 -- even with --use-angle=swiftshader), so the
+    //     crash cannot be isolated to a child process.
+    //   * --disable-threaded-compositing stops the crash but also stops all frames
+    //     (OnPaint rides that thread); --disable-threaded-animation keeps frames but
+    //     still crashes. No font-backend toggle, raster-thread limit or frame-rate
+    //     change avoids it. Bumping CEF 138 -> 150 did not help (identical crash).
+    // Mitigation lives on the Pharo side: (1) every FFI read of the shm is bounds-
+    // checked (WvSharedMemory>>safeFrameExtent) so a host that dies mid-write cannot
+    // segfault the image; (2) a frozen shm + dead host is detected and the current
+    // URL is relaunched, so the view self-heals instead of staying stale.
 }
 
 void WvApp::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) {

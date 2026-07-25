@@ -108,6 +108,35 @@ WvSharedMemory >> pixelsAddress [
 WvSharedMemory >> pixelsOffset [ ^ self u32At: (24 + (16 * 4 * 4))
 ]
 
+{ #category : 'header' }
+WvSharedMemory >> pixelCapacityBytes [
+	"Bytes actually available in the mapped pixel region: total mapping minus the
+	 header/pixel offset. A frame copy must never exceed this, or a garbage width/
+	 height left in the header by a host that crashed mid-write would drive an FFI
+	 memcpy past the mapping and segfault the whole image."
+	| off |
+	(size isNil or: [ address isNil ]) ifTrue: [ ^ 0 ].
+	off := self pixelsOffset.
+	(off < 24 or: [ off > size ]) ifTrue: [ ^ 0 ].
+	^ size - off
+]
+
+{ #category : 'header' }
+WvSharedMemory >> safeFrameExtent [
+	"width@height ONLY if the header is self-consistent and the frame fits inside the
+	 mapped region; otherwise nil. Every FFI read of the pixel buffer must gate on this:
+	 a host that died mid-write can leave valid magic but a half-written / garbage
+	 width, height or seq, and copying that many bytes would crash the entire Pharo
+	 image (not just the webview). seq odd = write in progress, so skip that frame too."
+	| w h |
+	self isValid ifFalse: [ ^ nil ].
+	self seq odd ifTrue: [ ^ nil ].
+	w := self width. h := self height.
+	((w between: 1 and: 8192) and: [ h between: 1 and: 8192 ]) ifFalse: [ ^ nil ].
+	(w * h * 4) > self pixelCapacityBytes ifTrue: [ ^ nil ].
+	^ w @ h
+]
+
 { #category : 'ffi' }
 WvSharedMemory >> primClose: fdInt [
 	^ self ffiCall: #(int close(int fdInt))
