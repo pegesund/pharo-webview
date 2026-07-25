@@ -41,11 +41,17 @@ WebViewCefMorph class >> cacheDir [
 
 { #category : 'config' }
 WebViewCefMorph class >> claimCacheSlot [
-	"Lowest slot index not held by a currently-live browser. A lone browser reuses slot 0
-	 across sessions, so its persistent cookie cache is reused and consent banners stop."
+	"Lowest slot index not held by a currently-live host. A slot is a distinct CEF
+	 root_cache_path; two live hosts sharing one collide on Chromium's profile SingletonLock
+	 and the second falls into the normal-browser-startup path (startup_browser_creator: 'No
+	 browser window found for startup') instead of rendering offscreen. Liveness is ownsHost
+	 (true from launchHost until killHost) -- crucially this also covers Bloc-hosted webviews,
+	 which have no Morphic world; the old `m world notNil` test excluded them, so every Bloc
+	 browser grabbed slot 0 and opening a second one collided. A lone browser still reuses
+	 slot 0 across sessions, so its persistent cookie cache sticks and consent banners stop."
 	| used i |
 	used := ((self allInstances
-		select: [ :m | m world notNil and: [ (m valueOfProperty: #wvCacheSlot ifAbsent: [ nil ]) notNil ] ])
+		select: [ :m | ((m instVarNamed: 'ownsHost') = true) and: [ (m valueOfProperty: #wvCacheSlot ifAbsent: [ nil ]) notNil ] ])
 		collect: [ :m | m valueOfProperty: #wvCacheSlot ]) asSet.
 	i := 0.
 	[ used includes: i ] whileTrue: [ i := i + 1 ].
