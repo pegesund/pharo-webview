@@ -52,6 +52,10 @@ std::string MimeFor(const std::string& path) {
     if (ext == "svg") return "image/svg+xml";
     if (ext == "gif") return "image/gif";
     if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
+    if (ext == "webp") return "image/webp";
+    if (ext == "bmp") return "image/bmp";
+    if (ext == "ico") return "image/x-icon";
+    if (ext == "avif") return "image/avif";
     if (ext == "json" || ext == "map") return "application/json";
     if (ext == "ttf") return "font/ttf";
     if (ext == "otf") return "font/otf";
@@ -59,11 +63,16 @@ std::string MimeFor(const std::string& path) {
     return "application/octet-stream";
 }
 
-// "/pdf/<id>" -> <assetroot>/<id>.pdf ; anything else -> pdf.js web tree.
+// "/pdf/<id>" -> <assetroot>/<id>.pdf ; "/asset/<file>" -> <assetroot>/<file>
+// (any extension, mime by extension -- images etc.); anything else -> web tree.
 std::string FileForPath(const std::string& path) {
     const std::string kPdf = "/pdf/";
     if (path.compare(0, kPdf.size(), kPdf) == 0) {
         return AssetRoot() + "/" + path.substr(kPdf.size()) + ".pdf";
+    }
+    const std::string kAsset = "/asset/";
+    if (path.compare(0, kAsset.size(), kAsset) == 0) {
+        return AssetRoot() + "/" + path.substr(kAsset.size());
     }
     return WebRoot() + path;
 }
