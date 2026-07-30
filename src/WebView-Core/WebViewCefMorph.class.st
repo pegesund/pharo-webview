@@ -446,26 +446,35 @@ WebViewCefMorph >> killHost [
 
 { #category : 'lifecycle' }
 WebViewCefMorph >> launchHost [
-	| cmd scale w h |
+	| cmd scale w h contentScale |
 	ownsHost ifTrue: [ ^ self ].
 	ownsHost := true.
 	self cleanupFiles.
 	scale := OSWorldRenderer canvasScaleFactor.
-	w := ((self width * scale) rounded max: 200) min: 2560.
-	h := ((self height * scale) rounded max: 200) min: 1600.
+	"Optional per-instance overrides: a Bloc host can cap the RENDER resolution and the
+	 content DPR so software CEF stays fast on a high-DPI display (the element then
+	 upscales the smaller frame to fill its physical size). Without overrides we keep
+	 the Morphic behaviour (element size x canvasScaleFactor, full display DPR)."
+	w := (self valueOfProperty: #wvRenderW ifAbsent: [ nil ])
+		ifNil: [ ((self width * scale) rounded max: 200) min: 2560 ]
+		ifNotNil: [ :v | (v rounded max: 200) min: 2560 ].
+	h := (self valueOfProperty: #wvRenderH ifAbsent: [ nil ])
+		ifNil: [ ((self height * scale) rounded max: 200) min: 1600 ]
+		ifNotNil: [ :v | (v rounded max: 200) min: 1600 ].
+	contentScale := (self valueOfProperty: #wvContentScale ifAbsent: [ nil ])
+		ifNil: [ WvPlatform displayScale ].
 	WvPlatform isWindows
 		ifTrue: [
 			"CreateProcess with bInheritHandles=FALSE: the child gets no image fds/
 			 sockets, so the perl fd-closing wrapper below is unnecessary here.
 			 --wv-scale=N: cef_host's private OSR device-scale flag, so web content
-			 renders at the OS display scale instead of tiny 1:1 physical pixels."
-			| args scale |
+			 renders at the given DPR instead of tiny 1:1 physical pixels."
+			| args |
 			args := OrderedCollection new.
 			args add: url; add: w printString; add: h printString;
 				add: shmPath; add: inputPath; add: self cachePath.
-			scale := WvPlatform displayScale.
-			scale > 1.01 ifTrue: [
-				args add: '--wv-scale=', (scale printShowingDecimalPlaces: 2) ].
+			contentScale > 1.01 ifTrue: [
+				args add: '--wv-scale=', (contentScale printShowingDecimalPlaces: 2) ].
 			WvPlatform
 				launchDetached: WebViewCefMorph binaryPath
 				arguments: args asArray
