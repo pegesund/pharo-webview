@@ -16,12 +16,13 @@ static const char* kPharoBridgeJS =
     "data:(d===undefined?null:d)}));}catch(e){}}};";
 
 WvApp::WvApp(WvShm* shm, std::string url, int width, int height,
-             std::string control_path)
+             std::string control_path, float scale)
     : shm_(shm),
       url_(std::move(url)),
       width_(width),
       height_(height),
-      control_path_(std::move(control_path)) {}
+      control_path_(std::move(control_path)),
+      scale_(scale) {}
 
 void WvApp::OnBeforeCommandLineProcessing(const CefString&,
                                           CefRefPtr<CefCommandLine> command_line) {
@@ -81,7 +82,7 @@ void WvApp::OnContextInitialized() {
 
     WvRegisterLeseScheme();
 
-    client_ = new WvClient(shm_, width_, height_);
+    client_ = new WvClient(shm_, width_, height_, scale_);
     if (!control_path_.empty()) {
         client_->setStatusPath(control_path_ + ".status");
         client_->setEventsPath(control_path_ + ".events");

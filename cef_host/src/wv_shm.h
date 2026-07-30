@@ -25,6 +25,10 @@ public:
 
 private:
     int fd_ = -1;
+    // Windows file/mapping HANDLEs (unused on POSIX; untyped so this header
+    // stays platform-neutral).
+    void* winFile_ = nullptr;
+    void* winMapping_ = nullptr;
     void* base_ = nullptr;
     size_t size_ = 0;
     wv_shm_header* header_ = nullptr;

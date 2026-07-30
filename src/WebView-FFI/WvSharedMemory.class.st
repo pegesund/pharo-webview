@@ -5,7 +5,9 @@ Class {
 		'path',
 		'fd',
 		'address',
-		'size'
+		'size',
+		'winFile',
+		'winMapping'
 	],
 	#category : 'WebView-FFI',
 	#package : 'WebView-FFI'
@@ -36,6 +38,11 @@ WvSharedMemory >> alive [ ^ (self u32At: (24 + (16*4*4) + 8)) = 1
 
 { #category : 'lifecycle' }
 WvSharedMemory >> close [
+	OSPlatform current isWindows ifTrue: [
+		address ifNotNil: [ self primUnmapViewOfFile: address ]. address := nil.
+		winMapping ifNotNil: [ self primCloseHandle: winMapping ]. winMapping := nil.
+		winFile ifNotNil: [ self primCloseHandle: winFile ]. winFile := nil.
+		^ self ].
 	address ifNotNil: [ self primMunmap: address len: size ]. address := nil.
 	fd ifNotNil: [ self primClose: fd ]. fd := nil
 ]
@@ -89,6 +96,7 @@ WvSharedMemory >> numDirty [ ^ self u32At: 20
 WvSharedMemory >> openPath: aPath size: aSize [
 	"Map the shared-memory file read-only. Returns true on success."
 	| oRDONLY protRead mapShared |
+	OSPlatform current isWindows ifTrue: [ ^ self winOpenPath: aPath size: aSize ].
 	path := aPath. size := aSize.
 	oRDONLY := 0. protRead := 1. mapShared := 1.
 	fd := self primOpen: aPath flags: oRDONLY.
@@ -96,6 +104,53 @@ WvSharedMemory >> openPath: aPath size: aSize [
 	address := self primMmapLen: aSize prot: protRead flags: mapShared fd: fd offset: 0.
 	(address isNil or: [ address isNull ]) ifTrue: [ self primClose: fd. fd := nil. ^ false ].
 	^ true
+]
+
+{ #category : 'lifecycle' }
+WvSharedMemory >> winOpenPath: aPath size: aSize [
+	"Windows: map the host-created backing file read-only via kernel32. The host
+	 opened it with full sharing, so OPEN_EXISTING + read access always works."
+	path := aPath. size := aSize.
+	"GENERIC_READ=16r80000000, share READ|WRITE|DELETE=7, OPEN_EXISTING=3, FILE_ATTRIBUTE_NORMAL=128."
+	winFile := self primCreateFile: aPath access: 16r80000000 share: 7 disposition: 3 flags: 128.
+	(winFile isNil or: [ winFile isNull or: [ (winFile asInteger = 16rFFFFFFFFFFFFFFFF) ] ])
+		ifTrue: [ winFile := nil. ^ false ].
+	"PAGE_READONLY=2; size 0,0 = whole file."
+	winMapping := self primCreateFileMapping: winFile protect: 2 hi: 0 lo: 0.
+	(winMapping isNil or: [ winMapping isNull ]) ifTrue: [
+		self primCloseHandle: winFile. winFile := nil. winMapping := nil. ^ false ].
+	"FILE_MAP_READ=4; length 0 = whole mapping."
+	address := self primMapViewOfFile: winMapping access: 4 hi: 0 lo: 0 len: 0.
+	(address isNil or: [ address isNull ]) ifTrue: [
+		self primCloseHandle: winMapping. winMapping := nil.
+		self primCloseHandle: winFile. winFile := nil.
+		address := nil. ^ false ].
+	^ true
+]
+
+{ #category : 'ffi - windows' }
+WvSharedMemory >> primCreateFile: aPath access: accessInt share: shareInt disposition: dispInt flags: flagsInt [
+	^ self ffiCall: #(void* CreateFileA(String aPath, uint32 accessInt, uint32 shareInt, nil, uint32 dispInt, uint32 flagsInt, nil)) library: 'kernel32.dll'
+]
+
+{ #category : 'ffi - windows' }
+WvSharedMemory >> primCreateFileMapping: fileHandle protect: protectInt hi: hiInt lo: loInt [
+	^ self ffiCall: #(void* CreateFileMappingA(void* fileHandle, nil, uint32 protectInt, uint32 hiInt, uint32 loInt, nil)) library: 'kernel32.dll'
+]
+
+{ #category : 'ffi - windows' }
+WvSharedMemory >> primMapViewOfFile: mappingHandle access: accessInt hi: hiInt lo: loInt len: lenInt [
+	^ self ffiCall: #(void* MapViewOfFile(void* mappingHandle, uint32 accessInt, uint32 hiInt, uint32 loInt, size_t lenInt)) library: 'kernel32.dll'
+]
+
+{ #category : 'ffi - windows' }
+WvSharedMemory >> primUnmapViewOfFile: addr [
+	^ self ffiCall: #(int UnmapViewOfFile(void* addr)) library: 'kernel32.dll'
+]
+
+{ #category : 'ffi - windows' }
+WvSharedMemory >> primCloseHandle: handle [
+	^ self ffiCall: #(int CloseHandle(void* handle)) library: 'kernel32.dll'
 ]
 
 { #category : 'header' }

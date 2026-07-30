@@ -16,7 +16,7 @@ class WvApp : public CefApp,
               public CefRenderProcessHandler {
 public:
     WvApp(WvShm* shm, std::string url, int width, int height,
-          std::string control_path);
+          std::string control_path, float scale = 1.0f);
 
     // CefApp
     CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override {
@@ -47,6 +47,7 @@ private:
     int width_;
     int height_;
     std::string control_path_;
+    float scale_;
     CefRefPtr<WvClient> client_;
 
     IMPLEMENT_REFCOUNTING(WvApp);

@@ -21,7 +21,7 @@ WebViewCefMorph class >> binaryPath [
 	value set via binaryPath:, then the built-in default."
 
 	| env |
-	env := [ OSPlatform current environment at: 'WV_CEF_HOST' ifAbsent: [ nil ] ]
+	env := [ OSEnvironment current at: 'WV_CEF_HOST' ifAbsent: [ nil ] ]
 		       on: Error
 		       do: [ :e | nil ].
 	env ifNotNil: [ ^ env ].
@@ -35,7 +35,12 @@ WebViewCefMorph class >> binaryPath: aString [
 
 { #category : 'config' }
 WebViewCefMorph class >> cacheDir [
-	"Persistent CEF cache/cookie root (macOS). Survives restarts so cookie-consent sticks."
+	"Persistent CEF cache/cookie root. Survives restarts so cookie-consent sticks."
+	WvPlatform isWindows ifTrue: [
+		| base |
+		base := OSEnvironment current at: 'LOCALAPPDATA' ifAbsent: [ nil ].
+		^ (base ifNil: [ FileLocator home / 'AppData' / 'Local' ] ifNotNil: [ base asFileReference ])
+			/ 'pharo-webview' / 'cache' ].
 	^ FileLocator home / 'Library' / 'Application Support' / 'pharo-webview' / 'cache'
 ]
 
@@ -55,11 +60,19 @@ WebViewCefMorph class >> claimCacheSlot [
 	used := ((self allInstances
 		select: [ :m | ((m instVarNamed: 'ownsHost') = true) and: [ (m valueOfProperty: #wvCacheSlot ifAbsent: [ nil ]) notNil ] ])
 		collect: [ :m | m valueOfProperty: #wvCacheSlot ]) asSet.
-	busy := [ :slot | | lock rc |
-		lock := (self cacheDir / ('slot-' , slot printString) / 'SingletonLock') fullName.
-		rc := [ LibC uniqueInstance runCommand: 'p=$(readlink "' , lock , '" 2>/dev/null) && ps -p "${p##*-}" >/dev/null 2>&1' ]
-			on: Error do: [ :e | 1 ].
-		rc = 0 ].
+	busy := WvPlatform isWindows
+		ifTrue: [ [ :slot | | lock |
+			"Chromium on Windows holds the profile's 'lockfile' open with no sharing while
+			 a host lives; an exclusive-open probe failing on an existing file = busy."
+			lock := self cacheDir / ('slot-' , slot printString) / 'lockfile'.
+			lock exists and: [
+				[ | s | s := (File named: lock fullName) openForWrite. s close. false ]
+					on: Error do: [ :e | true ] ] ] ]
+		ifFalse: [ [ :slot | | lock rc |
+			lock := (self cacheDir / ('slot-' , slot printString) / 'SingletonLock') fullName.
+			rc := [ LibC uniqueInstance runCommand: 'p=$(readlink "' , lock , '" 2>/dev/null) && ps -p "${p##*-}" >/dev/null 2>&1' ]
+				on: Error do: [ :e | 1 ].
+			rc = 0 ] ].
 	i := 0.
 	[ (used includes: i) or: [ busy value: i ] ] whileTrue: [ i := i + 1 ].
 	^ i
@@ -84,6 +97,8 @@ WebViewCefMorph class >> startUp: resuming [
 
 { #category : 'config' }
 WebViewCefMorph class >> defaultBinaryPath [
+	WvPlatform isWindows ifTrue: [
+		^ 'C:\Users\pette\dev\pharo-webview\cef_host\build\Release\cef_host.exe' ].
 	^ '/Users/pegesund/dev/pharo-webview/cef_host/build/cef_host.app/Contents/MacOS/cef_host'
 ]
 
@@ -129,7 +144,8 @@ WebViewCefMorph >> cachePath [
 { #category : 'lifecycle' }
 WebViewCefMorph >> cleanupFiles [
 	#('.shm' '.shm.cache' '.input' '.input.status' '.input.events' '.pid') do: [ :suffix |
-		[ ('/tmp/wv-cef-', id printString, suffix) asFileReference ensureDelete ] on: Error do: [:e|] ].
+		[ (WvPlatform tmpFileNamed: 'wv-cef-', id printString, suffix) asFileReference ensureDelete ]
+			on: Error do: [:e|] ].
 	self setProperty: #wvEventsOffset toValue: 0
 ]
 
@@ -308,9 +324,9 @@ WebViewCefMorph >> initialize [
 	url := 'https://example.com'.
 	ownsHost := false.
 	id := WebViewCefMorph nextId.
-	shmPath := '/tmp/wv-cef-', id printString, '.shm'.
-	inputPath := '/tmp/wv-cef-', id printString, '.input'.
-	pidPath := '/tmp/wv-cef-', id printString, '.pid'.
+	shmPath := WvPlatform tmpFileNamed: 'wv-cef-', id printString, '.shm'.
+	inputPath := WvPlatform tmpFileNamed: 'wv-cef-', id printString, '.input'.
+	pidPath := WvPlatform tmpFileNamed: 'wv-cef-', id printString, '.pid'.
 	self extent: 800 @ 600.
 	self color: (Color r: 0.1 g: 0.1 b: 0.12).
 	self borderWidth: 1.
@@ -424,7 +440,7 @@ WebViewCefMorph >> killHost [
 			       ifFalse: [ nil ] ]
 		       on: Error
 		       do: [ :e | nil ].
-	(pid notNil and: [ pid notEmpty ]) ifTrue: [ LibC runCommand: 'kill ' , pid , ' 2>/dev/null' ].
+	(pid notNil and: [ pid notEmpty ]) ifTrue: [ WvPlatform terminatePid: pid ].
 	ownsHost := false
 ]
 
@@ -437,19 +453,37 @@ WebViewCefMorph >> launchHost [
 	scale := OSWorldRenderer canvasScaleFactor.
 	w := ((self width * scale) rounded max: 200) min: 2560.
 	h := ((self height * scale) rounded max: 200) min: 1600.
-	"Launch cef_host through a perl wrapper that CLOSES all inherited file
-	 descriptors >= 3 before exec. Otherwise the child (via LibC runCommand -> sh)
-	 inherits every open fd of the image, INCLUDING any server listen/accept socket
-	 (e.g. the SisServer/MCP port). A long-lived cef_host then keeps that socket
-	 alive -- wedging the live server if it grabs an active connection, and holding
-	 the port after the image exits so the next boot fails with 'Address already in
-	 use'. Closing 3..1023 first fixes both. cef_host takes all its inputs by path,
-	 so it needs nothing above stdio."
-	cmd := '/usr/bin/perl -MPOSIX -e ''for (3..1023) { POSIX::close($_) }; exec @ARGV or die $!'' -- "',
-		WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString,
-		' "', shmPath, '" "', inputPath, '" "', self cachePath, '" >/tmp/wv-cef-', id printString,
-		'.log 2>&1 & echo $! > "', pidPath, '"'.
-	LibC runCommand: cmd.
+	WvPlatform isWindows
+		ifTrue: [
+			"CreateProcess with bInheritHandles=FALSE: the child gets no image fds/
+			 sockets, so the perl fd-closing wrapper below is unnecessary here.
+			 --wv-scale=N: cef_host's private OSR device-scale flag, so web content
+			 renders at the OS display scale instead of tiny 1:1 physical pixels."
+			| args scale |
+			args := OrderedCollection new.
+			args add: url; add: w printString; add: h printString;
+				add: shmPath; add: inputPath; add: self cachePath.
+			scale := WvPlatform displayScale.
+			scale > 1.01 ifTrue: [
+				args add: '--wv-scale=', (scale printShowingDecimalPlaces: 2) ].
+			WvPlatform
+				launchDetached: WebViewCefMorph binaryPath
+				arguments: args asArray
+				pidFile: pidPath ]
+		ifFalse: [
+			"Launch cef_host through a perl wrapper that CLOSES all inherited file
+			 descriptors >= 3 before exec. Otherwise the child (via LibC runCommand -> sh)
+			 inherits every open fd of the image, INCLUDING any server listen/accept socket
+			 (e.g. the SisServer/MCP port). A long-lived cef_host then keeps that socket
+			 alive -- wedging the live server if it grabs an active connection, and holding
+			 the port after the image exits so the next boot fails with 'Address already in
+			 use'. Closing 3..1023 first fixes both. cef_host takes all its inputs by path,
+			 so it needs nothing above stdio."
+			cmd := '/usr/bin/perl -MPOSIX -e ''for (3..1023) { POSIX::close($_) }; exec @ARGV or die $!'' -- "',
+				WebViewCefMorph binaryPath, '" "', url, '" ', w printString, ' ', h printString,
+				' "', shmPath, '" "', inputPath, '" "', self cachePath, '" >/tmp/wv-cef-', id printString,
+				'.log 2>&1 & echo $! > "', pidPath, '"'.
+			LibC runCommand: cmd ].
 	WebViewProjectPlan log: 'launched cef_host #', id printString, ' at ', w printString, 'x', h printString
 ]
 

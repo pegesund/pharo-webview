@@ -18,7 +18,7 @@ class WvClient : public CefClient,
                  public CefLoadHandler,
                  public CefDisplayHandler {
 public:
-    WvClient(WvShm* shm, int width, int height);
+    WvClient(WvShm* shm, int width, int height, float scale = 1.0f);
 
     // CefClient
     CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
@@ -78,6 +78,10 @@ private:
     WvShm* shm_;
     std::atomic<int> width_;
     std::atomic<int> height_;
+    // OSR device scale: web content lays out in (width_/scale_) CSS px, so the
+    // physical OnPaint buffer stays ~width_ px (matches the shm/SDL window) while
+    // the page renders scale_ times larger. 1.0 = no scaling (macOS/100% DPI).
+    std::atomic<float> scale_;
     CefRefPtr<CefBrowser> browser_;
     uint64_t frame_count_ = 0;
     std::string status_path_;

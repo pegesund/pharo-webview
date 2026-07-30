@@ -21,7 +21,10 @@ std::string WebRoot() {
 }
 
 std::string AssetRoot() {
+    // HOME on POSIX; USERPROFILE on Windows. Normally overridden by
+    // WV_LESE_ASSETROOT, which the Pharo side always sets.
     const char* home = std::getenv("HOME");
+    if (!home || !*home) home = std::getenv("USERPROFILE");
     return EnvOr("WV_LESE_ASSETROOT",
                  std::string(home ? home : "") + "/Documents/Leserom/assets");
 }

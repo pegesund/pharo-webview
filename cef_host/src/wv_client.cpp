@@ -27,22 +27,31 @@ static void PumpBeginFrame(CefRefPtr<CefBrowser> browser) {
     CefPostDelayedTask(TID_UI, base::BindOnce(&PumpBeginFrame, browser), 33);
 }
 
-WvClient::WvClient(WvShm* shm, int width, int height)
-    : shm_(shm), width_(width), height_(height) {}
+WvClient::WvClient(WvShm* shm, int width, int height, float scale)
+    : shm_(shm), width_(width), height_(height),
+      scale_(scale > 0.1f ? scale : 1.0f) {}
 
+// View rect is in DIP (logical) pixels. With device_scale_factor = scale_, CEF
+// paints a physical buffer of (viewW * scale_) = width_ px, matching the shm/SDL
+// window, while the page is laid out as if the window were width_/scale_ CSS px
+// wide -> content renders scale_ times larger.
 void WvClient::GetViewRect(CefRefPtr<CefBrowser>, CefRect& rect) {
-    rect.Set(0, 0, width_.load(), height_.load());
+    float s = scale_.load();
+    int w = (int)(width_.load() / s + 0.5f);
+    int h = (int)(height_.load() / s + 0.5f);
+    rect.Set(0, 0, w > 0 ? w : 1, h > 0 ? h : 1);
 }
 
 bool WvClient::GetScreenInfo(CefRefPtr<CefBrowser>, CefScreenInfo& info) {
-    info.device_scale_factor = 1.0f;
+    float s = scale_.load();
+    info.device_scale_factor = s;
     info.depth = 32;
     info.depth_per_component = 8;
     info.is_monochrome = false;
     info.rect.x = 0;
     info.rect.y = 0;
-    info.rect.width = width_.load();
-    info.rect.height = height_.load();
+    info.rect.width = (int)(width_.load() / s + 0.5f);
+    info.rect.height = (int)(height_.load() / s + 0.5f);
     info.available_rect = info.rect;
     return true;
 }
