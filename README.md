@@ -1,20 +1,23 @@
 # pharo-webview
 
-**A real web browser — full Chromium, via CEF — running as a first-class Morphic morph inside Pharo.**
+**A real web browser — full Chromium, via CEF — running as a first-class widget inside Pharo, in both Morphic and Bloc.**
 
 Not a screenshot, not an embedded native window bolted on top: the page is
-GPU-composited into the Pharo world at the SDL present step from raw BGRA frames
-over shared memory (no PNG, no per-frame decode). It behaves like any other
-morph — you can drag it, stack morphs over it, put it in a window, script it,
-and get callbacks back from the page's JavaScript.
+composited into the Pharo world from raw BGRA frames over shared memory (no PNG,
+no per-frame decode). It behaves like any other widget — you can drag it, stack
+things over it, put it in a window, script it, and get callbacks back from the
+page's JavaScript. The same shared-memory bridge drives a **Morphic morph**
+(`WebViewCefMorph`) and a **Bloc element** (`WvBlocView`).
 
 ![A live Wikipedia page rendered as a Pharo morph with a working toolbar](docs/feature-browser-widget.png)
 
-> ⚠️ **Platform: macOS (Apple Silicon / arm64) only, so far.** This is where it
-> has been built and tested. The architecture is portable (CEF + SDL + POSIX
-> shared memory), but the host app is currently a macOS `.app` bundle with
-> macOS-specific launch and code-signing. Linux/Windows are not done yet — help
-> welcome.
+> ✅ **Platforms: macOS (Apple Silicon / arm64) and Windows (x64).** Both build
+> and run. All Pharo code is shared and branches on OS at runtime — never on
+> architecture — so **Windows-ARM is almost entirely a native-build task**
+> (pick the arm64 CEF dist + toolchain). See
+> [`docs/plattform-strategi.md`](https://github.com/pegesund/leserom/blob/main/docs/plattform-strategi.md)
+> in the leserom repo for the full mac/win/win-arm strategy. Linux is not done
+> yet — help welcome.
 
 ---
 
@@ -22,7 +25,7 @@ and get callbacks back from the page's JavaScript.
 
 - [What you get](#what-you-get)
 - [Features in pictures](#features-in-pictures)
-- [Quick start](#quick-start) — [build the host](#1-build-the-cef-host-macos-arm64), [load the packages](#2-load-the-pharo-packages-pharo-14), [open a browser](#3-open-a-browser)
+- [Quick start](#quick-start) — [build the host](#1-build-the-cef-host-macos-arm64), [load the packages](#2-load-the-pharo-packages-pharo-14), [open a browser](#3-open-a-browser), [host it in Bloc](#4-or-host-it-in-bloc)
 - [Scripting the page from Pharo](#scripting-the-page-from-pharo) — run JS, edit the DOM
 - [Callbacks from the page](#callbacks-from-the-page) — page events + `window.pharo.emit`
 - [Browser automation, the Smalltalk way](#browser-automation-the-smalltalk-way) — the `WvPage` DSL, [assertions & tests](#assertions--tests), [screenshots](#screenshots)
@@ -131,7 +134,29 @@ WebViewMenuBrowserMorph open.                 "the 'Steder' dropdown-menu demo (
 
 Each morph launches and kills its own `cef_host` process. Point Pharo at a
 specific binary with the `WV_CEF_HOST` environment variable or
-`WebViewCefMorph binaryPath:`. It defaults to `cef_host/build/cef_host.app`.
+`WebViewCefMorph binaryPath:`. It defaults to `cef_host/build/cef_host.app`
+(macOS) or `cef_host/build/Release/cef_host.exe` (Windows).
+
+### 4. …or host it in Bloc
+
+The same browser runs as a `BlElement` — the Bloc counterpart to the Morphic
+morph. Load the optional `bloc` group (pulls in Bloc) and open a window:
+
+```smalltalk
+"load the Bloc host (Morphic users can skip this — Bloc stays out of #default)"
+Metacello new
+	repository: 'github://pegesund/pharo-webview:main/src';
+	baseline: 'WebView';
+	load: 'bloc'.
+
+WvBlocView openOn: 'https://no.wikipedia.org/wiki/Lesing'.
+```
+
+`WvBlocView` (package `WebView-Bloc`) is a self-contained `BlElement`: a
+background render loop blits each new CEF frame from shared memory onto the UI
+thread, and mouse / wheel / keyboard / resize events are forwarded to `cef_host`.
+It reuses `WebViewCefMorph` for the process + command channel, so scripting,
+callbacks and everything below work identically. Same code on macOS and Windows.
 
 ---
 
@@ -310,12 +335,15 @@ Design decisions, all hard-won:
 
 ```
 src/            Pharo packages (Tonel):
-                WebView-Core (morphs + compositing renderer),
+                WebView-Core (morphs + compositing renderer + WvPlatform),
                 WebView-FFI (WvSharedMemory, WvShim),
                 WebView-Example (WebViewBrowserMorph, WebViewTabbedBrowserMorph, WebViewMenuBrowserMorph),
+                WebView-Bloc (WvBlocView — the Bloc host; group 'bloc', not in #default),
                 WebView-Planning, WebView-Core-Tests, BaselineOfWebView
-cef_host/       The CEF host app (C++): CefRenderHandler → shared memory, input
+cef_host/       The CEF host (C++): CefRenderHandler → shared memory, input
                 channel, navigation, reverse event channel, JS bridge.
+                main_mac.mm / main_win.cpp are the per-OS entry points;
+                wv_shm.cpp bridges mmap (POSIX) / MapViewOfFile (Windows).
                 third_party/cef holds the CEF distribution (fetched, gitignored).
 cdp/            A headless-Chrome CDP fallback backend + demo/probe pages.
 shim/           Rust cdylib (wvshim): flat C ABI fake engine (an early stepping stone).
@@ -328,18 +356,21 @@ The full build history and milestone reports also live **in the image** as
 
 ## Status & limitations
 
-Working: live Chromium in a morph; mouse/keyboard/scroll/focus/resize;
-navigation; multiple simultaneous browsers; a tabbed browser; morph z-order over
-the page; run-JS / DOM manipulation; lifecycle + page-JS callbacks.
+Working: live Chromium in a morph **or a Bloc element**; mouse/keyboard/scroll/
+focus/resize; navigation; multiple simultaneous browsers; a tabbed browser; morph
+z-order over the page; run-JS / DOM manipulation; lifecycle + page-JS callbacks.
+Runs on **macOS/arm64 and Windows/x64**, with high-DPI content scaling on Windows
+(`--wv-scale`).
 
 Not done yet:
 
-- **macOS/arm64 only** — no Linux/Windows host build, no Intel-mac build.
+- **No Linux host build; no Intel-mac build.** Windows-ARM is untested but should
+  be a native-build-only change (see the platform strategy doc).
 - Occlusion is rectangular — a morph in front clips the browser by its bounding
   box, so rounded/irregular morphs occlude a slightly larger rectangle.
 - IME, and popup / native `<select>` widgets, are not wired up.
 - `cef_host.app` is ad-hoc signed (local use); distribution needs Developer ID
-  signing + notarization.
+  signing + notarization (macOS) or an Authenticode cert (Windows).
 
 ## Credits
 
